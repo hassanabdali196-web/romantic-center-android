@@ -5,8 +5,8 @@
     <application
         android:allowBackup="true"
         android:label="مركز رومانتك"
-        android:icon="@drawable/ic_launcher"
-        android:roundIcon="@drawable/ic_launcher"
+        android:icon="@drawable/romantic_logo"
+        android:roundIcon="@drawable/romantic_logo"
         android:theme="@style/Theme.RomanticCenter"
         android:supportsRtl="true">
 
