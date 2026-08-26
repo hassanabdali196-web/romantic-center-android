@@ -3,7 +3,9 @@ package com.romanticcenter.app;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 
@@ -62,6 +64,7 @@ public class NotificationWorker extends Worker {
             if (viewOrders) checkManagementOrders(idToken, prefs);
             else checkCustomerOrders(idToken, localId, prefs);
             if (manageUsers) checkPendingWholesale(idToken, prefs);
+            checkPromotions(idToken, prefs);
             return Result.success();
         } catch (Exception e) {
             return Result.retry();
@@ -98,7 +101,7 @@ public class NotificationWorker extends Worker {
                 String id = docId(d); if (previous.contains(id)) continue;
                 String no = field(d, "orderNo");
                 String customer = field(d, "customerName");
-                notifyUser("طلب جديد", (no.isEmpty()?"طلب جديد":no) + (customer.isEmpty()?"":" — " + customer), id.hashCode());
+                notifyUser("طلب جديد", (no.isEmpty()?"طلب جديد":no) + (customer.isEmpty()?"":" — " + customer), id.hashCode(), "adminOrders", id);
                 shown++;
             }
         }
@@ -124,7 +127,7 @@ public class NotificationWorker extends Worker {
                 String id=docId(d);
                 if(!current.contains(id)||previous.contains(id))continue;
                 String name=field(d,"fullName"), username=field(d,"username");
-                notifyUser("طلب حساب جملة", (name.isEmpty()?username:name) + " بانتظار موافقتك", ("w"+id).hashCode());
+                notifyUser("طلب حساب جملة", (name.isEmpty()?username:name) + " بانتظار موافقتك", ("w"+id).hashCode(), "adminUsers", id);
                 shown++;
             }
         }
@@ -157,13 +160,51 @@ public class NotificationWorker extends Worker {
                 String old=previous.optString(e.getKey(),"");
                 String now=e.getValue();
                 if(!old.isEmpty()&&!old.equals(now)){
-                    notifyUser("تحديث حالة الطلب", (orderNo.get(e.getKey())==null?"طلبك":orderNo.get(e.getKey())) + " — " + statusAr(now), ("s"+e.getKey()+now).hashCode());
+                    notifyUser("تحديث حالة الطلب", (orderNo.get(e.getKey())==null?"طلبك":orderNo.get(e.getKey())) + " — " + statusAr(now), ("s"+e.getKey()+now).hashCode(), "order", e.getKey());
                 }
             }
         }
         JSONObject next=new JSONObject();for(Map.Entry<String,String> e:current.entrySet())next.put(e.getKey(),e.getValue());
         prefs.edit().putString("customer_statuses",next.toString()).putBoolean("customer_initialized",true).apply();
     }
+
+    private void checkPromotions(String token, SharedPreferences prefs) throws Exception {
+        JSONObject d = requestJson(FS_BASE + "/settings/store", "GET", token, null, null);
+        JSONObject fields = d.optJSONObject("fields");
+        Set<String> current = new HashSet<>();
+        Map<String,String> titles = new HashMap<>();
+        if (fields != null) {
+            JSONObject p = fields.optJSONObject("promotions");
+            JSONObject av = p == null ? null : p.optJSONObject("arrayValue");
+            JSONArray values = av == null ? null : av.optJSONArray("values");
+            if (values != null) {
+                for (int i=0;i<values.length();i++) {
+                    JSONObject v=values.optJSONObject(i); if(v==null)continue;
+                    JSONObject mv=v.optJSONObject("mapValue"); if(mv==null)continue;
+                    JSONObject pf=mv.optJSONObject("fields"); if(pf==null)continue;
+                    String id=stringField(pf,"id");
+                    String title=stringField(pf,"title");
+                    boolean active=booleanField(pf,"active",true);
+                    if(active && !id.isEmpty()){current.add(id);titles.put(id,title);}
+                }
+            }
+        }
+        Set<String> previous = new HashSet<>(prefs.getStringSet("seen_promotions", new HashSet<>()));
+        boolean initialized = prefs.getBoolean("promotions_initialized", false);
+        if(initialized){
+            int shown=0;
+            for(String id:current){
+                if(previous.contains(id))continue;
+                String title=titles.get(id);
+                notifyUser("عرض جديد من مركز رومانتك", title==null||title.isEmpty()?"شاهد أحدث الخصومات والعروض":title, ("p"+id).hashCode(), "promotions", id);
+                if(++shown>=3)break;
+            }
+        }
+        prefs.edit().putStringSet("seen_promotions",current).putBoolean("promotions_initialized",true).apply();
+    }
+
+    private String stringField(JSONObject fields,String name){JSONObject v=fields.optJSONObject(name);return v==null?"":v.optString("stringValue","");}
+    private boolean booleanField(JSONObject fields,String name,boolean fallback){JSONObject v=fields.optJSONObject(name);return v==null?fallback:v.optBoolean("booleanValue",fallback);}
 
     private String statusAr(String s){
         if("new".equals(s))return "طلب جديد";
@@ -193,10 +234,26 @@ public class NotificationWorker extends Worker {
         int code=c.getResponseCode();BufferedReader br=new BufferedReader(new InputStreamReader(code>=200&&code<300?c.getInputStream():c.getErrorStream(),StandardCharsets.UTF_8));StringBuilder sb=new StringBuilder();String line;while((line=br.readLine())!=null)sb.append(line);br.close();if(code<200||code>=300)throw new Exception("HTTP "+code+" "+sb);return sb.toString();
     }
 
-    private void notifyUser(String title,String text,int id){
-        Context ctx=getApplicationContext();NotificationManager nm=(NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){NotificationChannel ch=new NotificationChannel(CHANNEL,"إشعارات مركز رومانتك",NotificationManager.IMPORTANCE_HIGH);ch.setDescription("الطلبات، الشحن، وحسابات الجملة");nm.createNotificationChannel(ch);}
+    private void notifyUser(String title,String text,int id,String route,String itemId){
+        Context ctx=getApplicationContext();
+        NotificationManager nm=(NotificationManager)ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+        if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O){NotificationChannel ch=new NotificationChannel(CHANNEL,"إشعارات مركز رومانتك",NotificationManager.IMPORTANCE_HIGH);ch.setDescription("الطلبات، الشحن، الخصومات، وحسابات الجملة");nm.createNotificationChannel(ch);}
+
+        Intent intent=new Intent(ctx,MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.putExtra("notification_route",route==null?"":route);
+        intent.putExtra("notification_item_id",itemId==null?"":itemId);
+        int requestCode=Math.abs((id+":"+route+":"+itemId).hashCode());
+        PendingIntent pendingIntent=PendingIntent.getActivity(ctx,requestCode,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+
         Notification.Builder b=Build.VERSION.SDK_INT>=Build.VERSION_CODES.O?new Notification.Builder(ctx,CHANNEL):new Notification.Builder(ctx);
-        b.setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title).setContentText(text).setAutoCancel(true).setPriority(Notification.PRIORITY_HIGH);nm.notify(Math.abs(id),b.build());
+        b.setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setStyle(new Notification.BigTextStyle().bigText(text))
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setPriority(Notification.PRIORITY_HIGH);
+        nm.notify(Math.abs(id),b.build());
     }
 }
