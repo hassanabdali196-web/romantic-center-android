@@ -15,6 +15,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare Romantic Center v2 assets
+        run: |
+          cat app/buildsrc/index.b64.part* | base64 -d | gunzip > app/src/main/assets/index.html
+          cat app/buildsrc/logo.b64.part* | base64 -d > app/src/main/assets/logo.webp
+          test -s app/src/main/assets/index.html
+          test -s app/src/main/assets/logo.webp
+          grep -q "المستخدمون والصلاحيات" app/src/main/assets/index.html
+          grep -q "قيد التجهيز" app/src/main/assets/index.html
+          grep -q "تم الشحن" app/src/main/assets/index.html
+          grep -q "إضافة فئة" app/src/main/assets/index.html
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -36,12 +47,12 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
 
       - name: Prepare APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Romantic-Center.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Romantic-Center-v2.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romantic-Center-APK
-          path: Romantic-Center.apk
+          name: Romantic-Center-v2-APK
+          path: Romantic-Center-v2.apk
           if-no-files-found: error
           retention-days: 30
