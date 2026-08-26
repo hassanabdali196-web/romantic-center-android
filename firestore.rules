@@ -24,8 +24,8 @@ service cloud.firestore {
       );
     }
 
-    match /users/{uid} {
-      allow create: if signedIn()
+    function selfRegistration(uid) {
+      return signedIn()
         && request.auth.uid == uid
         && request.resource.data.role in ['retail', 'wholesale']
         && request.resource.data.permissions.size() == 0
@@ -33,6 +33,18 @@ service cloud.firestore {
           (request.resource.data.role == 'retail' && request.resource.data.status == 'active') ||
           (request.resource.data.role == 'wholesale' && request.resource.data.status == 'pending')
         );
+    }
+
+    function managerCreate() {
+      return hasPermission('manage_users')
+        && request.resource.data.role in ['retail', 'wholesale', 'staff']
+        && request.resource.data.permissions.size() == 0;
+    }
+
+    match /users/{uid} {
+      allow create: if selfRegistration(uid)
+        || managerCreate()
+        || (hasPermission('manage_permissions') && request.resource.data.role in ['retail', 'wholesale', 'staff', 'admin']);
 
       allow read: if signedIn() && (
         request.auth.uid == uid || hasPermission('manage_users')
@@ -44,7 +56,14 @@ service cloud.firestore {
           request.resource.data.role == resource.data.role &&
           request.resource.data.status == resource.data.status &&
           request.resource.data.permissions == resource.data.permissions
-        ) || hasPermission('manage_users')
+        ) ||
+        (
+          hasPermission('manage_users') &&
+          resource.data.role != 'admin' &&
+          request.resource.data.role in ['retail', 'wholesale', 'staff'] &&
+          request.resource.data.permissions == resource.data.permissions
+        ) ||
+        hasPermission('manage_permissions')
       );
 
       allow delete: if hasPermission('manage_permissions');
