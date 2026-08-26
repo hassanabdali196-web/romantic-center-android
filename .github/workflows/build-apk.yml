@@ -26,19 +26,25 @@ jobs:
           node --check app/src/main/assets/print_patch.js
           node --check app/src/main/assets/admin_mobile_patch.js
           node --check app/src/main/assets/final_features_patch.js
-          sed -i 's#</body>#<script src="print_patch.js"></script><script src="admin_mobile_patch.js"></script><script src="final_features_patch.js"></script></body>#' app/src/main/assets/index.html
+          node --check app/src/main/assets/v31_patch.js
+          sed -i 's#</body>#<script src="print_patch.js"></script><script src="admin_mobile_patch.js"></script><script src="final_features_patch.js"></script><script src="v31_patch.js"></script></body>#' app/src/main/assets/index.html
           grep -q "المستخدمون والصلاحيات" app/src/main/assets/index.html
           grep -q "قيد التجهيز" app/src/main/assets/index.html
           grep -q "تم الشحن" app/src/main/assets/index.html
           grep -q "print_patch.js" app/src/main/assets/index.html
           grep -q "admin_mobile_patch.js" app/src/main/assets/index.html
           grep -q "final_features_patch.js" app/src/main/assets/index.html
+          grep -q "v31_patch.js" app/src/main/assets/index.html
           grep -q "فاتورة / PDF" app/src/main/assets/print_patch.js
           grep -q "الإعلانات والخصومات" app/src/main/assets/final_features_patch.js
           grep -q "خدمات الدعم" app/src/main/assets/final_features_patch.js
           grep -q "حلبجة" app/src/main/assets/final_features_patch.js
           grep -q "فئة داخلية / براند" app/src/main/assets/final_features_patch.js
-          grep -q "NotificationWorker" app/src/main/java/com/romanticcenter/app/MainActivity.java
+          grep -q "MAX_PRODUCT_IMAGES = 5" app/src/main/assets/v31_patch.js
+          grep -q "handleNativeDeepLink" app/src/main/assets/v31_patch.js
+          grep -q "صورة الإعلان" app/src/main/assets/v31_patch.js
+          grep -q "PendingIntent" app/src/main/java/com/romanticcenter/app/NotificationWorker.java
+          grep -q "notification_route" app/src/main/java/com/romanticcenter/app/MainActivity.java
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -64,15 +70,15 @@ jobs:
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -q "package: name='com.romanticcenter.app'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -q "versionName='3.0.0'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -q "versionName='3.1.0'"
 
       - name: Prepare APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Romantic-Center-v3.0.0.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Romantic-Center-v3.1.0.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romantic-Center-v3.0.0-APK
-          path: Romantic-Center-v3.0.0.apk
+          name: Romantic-Center-v3.1.0-APK
+          path: Romantic-Center-v3.1.0.apk
           if-no-files-found: error
           retention-days: 30
