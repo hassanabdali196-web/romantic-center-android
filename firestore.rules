@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function profileExists() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function active() {
+      return profileExists() && me().status == 'active';
+    }
+
+    function hasPermission(permission) {
+      return active() && (
+        me().role == 'admin' ||
+        (me().role == 'staff' && me().permissions.hasAny([permission]))
+      );
+    }
+
+    match /users/{uid} {
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role in ['retail', 'wholesale']
+        && request.resource.data.permissions.size() == 0
+        && (
+          (request.resource.data.role == 'retail' && request.resource.data.status == 'active') ||
+          (request.resource.data.role == 'wholesale' && request.resource.data.status == 'pending')
+        );
+
+      allow read: if signedIn() && (
+        request.auth.uid == uid || hasPermission('manage_users')
+      );
+
+      allow update: if signedIn() && (
+        (
+          request.auth.uid == uid &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.permissions == resource.data.permissions
+        ) || hasPermission('manage_users')
+      );
+
+      allow delete: if hasPermission('manage_permissions');
+    }
+
+    match /categories/{id} {
+      allow read: if active();
+      allow create, update, delete: if hasPermission('manage_categories');
+    }
+
+    match /products/{id} {
+      allow read: if active();
+      allow create, update, delete: if hasPermission('manage_products');
+    }
+
+    match /orders/{id} {
+      allow create: if active() && request.resource.data.userId == request.auth.uid;
+      allow read: if active() && (
+        resource.data.userId == request.auth.uid || hasPermission('view_orders')
+      );
+      allow update: if hasPermission('update_orders');
+      allow delete: if active() && me().role == 'admin';
+    }
+
+    match /settings/{id} {
+      allow read: if active();
+      allow create, update, delete: if hasPermission('manage_settings');
+    }
+  }
+}
