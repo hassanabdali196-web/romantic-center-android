@@ -15,18 +15,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare Romantic Center v2 assets
+      - name: Prepare and verify Romantic Center assets
         run: |
+          set -euo pipefail
           cat app/buildsrc/index.b64.part* | base64 -d | gunzip > app/src/main/assets/index.html
           cat app/buildsrc/logo.b64.part* | base64 -d > app/src/main/assets/logo.webp
           cp app/src/main/assets/logo.webp app/src/main/res/drawable/romantic_logo.webp
-          test -s app/src/main/assets/index.html
-          test -s app/src/main/assets/logo.webp
-          test -s app/src/main/res/drawable/romantic_logo.webp
+          echo "2da71bb8599059c71e95d8655200adb95920d4c7091217b81e06f97e778e0b9f  app/src/main/assets/index.html" | sha256sum -c -
+          echo "b2ea56b5cba2752bf2db03d692282b6edc9bff360413ba9bcaffd64ede898fec  app/src/main/assets/logo.webp" | sha256sum -c -
+          node --check app/src/main/assets/print_patch.js
+          sed -i 's#</body>#<script src="print_patch.js"></script></body>#' app/src/main/assets/index.html
           grep -q "المستخدمون والصلاحيات" app/src/main/assets/index.html
           grep -q "قيد التجهيز" app/src/main/assets/index.html
+          grep -q "تم التجهيز" app/src/main/assets/index.html
           grep -q "تم الشحن" app/src/main/assets/index.html
+          grep -q "مكتمل" app/src/main/assets/index.html
           grep -q "إضافة فئة" app/src/main/assets/index.html
+          grep -q "print_patch.js" app/src/main/assets/index.html
+          grep -q "فاتورة / PDF" app/src/main/assets/print_patch.js
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -48,13 +54,18 @@ jobs:
       - name: Build installable APK
         run: gradle --no-daemon :app:assembleDebug
 
+      - name: Verify APK
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -q "package: name='com.romanticcenter.app'"
+
       - name: Prepare APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Romantic-Center-v2.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Romantic-Center-v2-RC.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Romantic-Center-v2-APK
-          path: Romantic-Center-v2.apk
+          name: Romantic-Center-v2-RC-APK
+          path: Romantic-Center-v2-RC.apk
           if-no-files-found: error
           retention-days: 30
