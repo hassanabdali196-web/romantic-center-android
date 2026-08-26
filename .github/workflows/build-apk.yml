@@ -19,8 +19,10 @@ jobs:
         run: |
           cat app/buildsrc/index.b64.part* | base64 -d | gunzip > app/src/main/assets/index.html
           cat app/buildsrc/logo.b64.part* | base64 -d > app/src/main/assets/logo.webp
+          cp app/src/main/assets/logo.webp app/src/main/res/drawable/romantic_logo.webp
           test -s app/src/main/assets/index.html
           test -s app/src/main/assets/logo.webp
+          test -s app/src/main/res/drawable/romantic_logo.webp
           grep -q "المستخدمون والصلاحيات" app/src/main/assets/index.html
           grep -q "قيد التجهيز" app/src/main/assets/index.html
           grep -q "تم الشحن" app/src/main/assets/index.html
