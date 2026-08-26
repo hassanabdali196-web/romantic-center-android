@@ -6,6 +6,7 @@ import android.app.Activity;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -33,6 +34,8 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 
+import org.json.JSONObject;
+
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends Activity {
@@ -44,6 +47,9 @@ public class MainActivity extends Activity {
     private static final String PREFS = "romantic_native";
     private static final String WORK_NAME = "romantic-background-notifications";
     private static final String CHANNEL = "romantic_updates";
+    private boolean webReady = false;
+    private String pendingRoute = "";
+    private String pendingItemId = "";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -56,6 +62,7 @@ public class MainActivity extends Activity {
 
         createNotificationChannel();
         requestNotificationPermission();
+        captureNotificationIntent(getIntent());
 
         webView = new WebView(this);
         setContentView(webView);
@@ -92,6 +99,13 @@ public class MainActivity extends Activity {
                 }
                 return false;
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                webReady = true;
+                dispatchPendingDeepLink();
+            }
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
@@ -111,7 +125,11 @@ public class MainActivity extends Activity {
         });
 
         if (savedInstanceState == null) webView.loadUrl("file:///android_asset/index.html");
-        else webView.restoreState(savedInstanceState);
+        else {
+            webView.restoreState(savedInstanceState);
+            webReady = true;
+            dispatchPendingDeepLink();
+        }
 
         String existing = getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("session", "");
         if (existing != null && !existing.isEmpty()) scheduleNotificationWork();
@@ -161,8 +179,38 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void notifyNow(String title, String body) {
-            showNotification(title == null ? "مركز رومانتك" : title, body == null ? "" : body);
+            showNotification(title == null ? "مركز رومانتك" : title, body == null ? "" : body, "home", "");
         }
+    }
+
+    private void captureNotificationIntent(Intent intent) {
+        if (intent == null) return;
+        String route = intent.getStringExtra("notification_route");
+        String itemId = intent.getStringExtra("notification_item_id");
+        if (route != null && !route.trim().isEmpty()) {
+            pendingRoute = route.trim();
+            pendingItemId = itemId == null ? "" : itemId.trim();
+        }
+    }
+
+    private void dispatchPendingDeepLink() {
+        if (!webReady || webView == null || pendingRoute == null || pendingRoute.isEmpty()) return;
+        final String route = pendingRoute;
+        final String itemId = pendingItemId == null ? "" : pendingItemId;
+        pendingRoute = "";
+        pendingItemId = "";
+        String js = "(function(){var r=" + JSONObject.quote(route) + ",i=" + JSONObject.quote(itemId) + ";" +
+                "if(window.handleNativeDeepLink){window.handleNativeDeepLink(r,i);}else{" +
+                "localStorage.setItem('romantic_pending_native_link',JSON.stringify({route:r,itemId:i}));}})();";
+        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 250);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        captureNotificationIntent(intent);
+        dispatchPendingDeepLink();
     }
 
     private void scheduleNotificationWork() {
@@ -178,7 +226,7 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             NotificationChannel ch = new NotificationChannel(CHANNEL, "إشعارات مركز رومانتك", NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("الطلبات، الشحن، وحسابات الجملة");
+            ch.setDescription("الطلبات، الشحن، الخصومات، وحسابات الجملة");
             nm.createNotificationChannel(ch);
         }
     }
@@ -189,10 +237,15 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void showNotification(String title, String body) {
+    private void showNotification(String title, String body, String route, String itemId) {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.putExtra("notification_route", route);
+        intent.putExtra("notification_item_id", itemId);
+        PendingIntent pi = PendingIntent.getActivity(this, (int)(System.currentTimeMillis() & 0x7fffffff), intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification.Builder b = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? new Notification.Builder(this, CHANNEL) : new Notification.Builder(this);
-        b.setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title).setContentText(body).setAutoCancel(true).setPriority(Notification.PRIORITY_HIGH);
+        b.setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title).setContentText(body).setContentIntent(pi).setAutoCancel(true).setPriority(Notification.PRIORITY_HIGH);
         nm.notify((int) (System.currentTimeMillis() & 0x7fffffff), b.build());
     }
 
