@@ -19,17 +19,15 @@ public class MainActivity extends Activity {
     private AdView banner;
     private InterstitialAd interstitial;
     private boolean backRequestRunning = false;
+
+    // Test ads are used only in debug builds. Release builds are ad-free until real AdMob IDs are configured.
+    private static final boolean ADS_ENABLED = BuildConfig.DEBUG;
     private static final String BANNER_ID = "ca-app-pub-3940256099942544/6300978111";
     private static final String INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712";
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
-
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7);
-        }
         createNotificationChannel();
-        MobileAds.initialize(this, s -> {});
 
         getWindow().setStatusBarColor(android.graphics.Color.rgb(11,45,91));
         getWindow().setNavigationBarColor(android.graphics.Color.WHITE);
@@ -42,7 +40,11 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         webView.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
         webView.setBackgroundColor(android.graphics.Color.rgb(244,247,251));
-        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        webView.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        webView.setVerticalScrollBarEnabled(true);
+        webView.setScrollbarFadingEnabled(false);
+        webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+        webView.setNestedScrollingEnabled(true);
 
         WebSettings ws = webView.getSettings();
         ws.setJavaScriptEnabled(true);
@@ -68,8 +70,16 @@ public class MainActivity extends Activity {
         root.addView(banner);
 
         setContentView(root);
-        banner.loadAd(new AdRequest.Builder().build());
-        loadInterstitial();
+
+        if (ADS_ENABLED) {
+            MobileAds.initialize(this, s -> {});
+            banner.setVisibility(View.VISIBLE);
+            banner.loadAd(new AdRequest.Builder().build());
+            loadInterstitial();
+        } else {
+            banner.setVisibility(View.GONE);
+        }
+
         webView.loadUrl("file:///android_asset/index.html");
 
         if (Build.VERSION.SDK_INT >= 33) {
@@ -85,7 +95,7 @@ public class MainActivity extends Activity {
     }
 
     private void applySafeInsets(View root) {
-        final int extra = dp(5);
+        final int extra = dp(4);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             int left = 0, top = 0, right = 0, bottom = 0;
             if (Build.VERSION.SDK_INT >= 30) {
@@ -104,6 +114,7 @@ public class MainActivity extends Activity {
     }
 
     private void loadInterstitial() {
+        if (!ADS_ENABLED) return;
         InterstitialAd.load(this, INTERSTITIAL_ID, new AdRequest.Builder().build(),
             new InterstitialAdLoadCallback() {
                 @Override public void onAdLoaded(@NonNull InterstitialAd ad) { interstitial = ad; }
@@ -118,6 +129,7 @@ public class MainActivity extends Activity {
     public class Bridge {
         @JavascriptInterface public void showInterstitial() {
             runOnUiThread(() -> {
+                if (!ADS_ENABLED) { continueQuiz(); return; }
                 if (interstitial == null) { continueQuiz(); loadInterstitial(); return; }
                 interstitial.setFullScreenContentCallback(new FullScreenContentCallback() {
                     @Override public void onAdDismissedFullScreenContent() { interstitial = null; continueQuiz(); loadInterstitial(); }
@@ -136,6 +148,11 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface public void scheduleReminder(String title, long whenMs) {
             if (whenMs <= System.currentTimeMillis()) return;
+
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                runOnUiThread(() -> requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7));
+            }
+
             Intent intent = new Intent(MainActivity.this, NotificationReceiver.class);
             intent.putExtra("title", title);
             int id = (int)(whenMs % Integer.MAX_VALUE);
