@@ -6,6 +6,7 @@ import android.content.*;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.*;
+import android.view.*;
 import android.webkit.*;
 import android.widget.*;
 import androidx.annotation.NonNull;
@@ -17,36 +18,89 @@ public class MainActivity extends Activity {
     private WebView webView;
     private AdView banner;
     private InterstitialAd interstitial;
+    private boolean backRequestRunning = false;
     private static final String BANNER_ID = "ca-app-pub-3940256099942544/6300978111";
     private static final String INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712";
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
+
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7);
         }
         createNotificationChannel();
         MobileAds.initialize(this, s -> {});
+
+        getWindow().setStatusBarColor(android.graphics.Color.rgb(11,45,91));
+        getWindow().setNavigationBarColor(android.graphics.Color.WHITE);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(android.graphics.Color.rgb(244,247,251));
+        applySafeInsets(root);
+
         webView = new WebView(this);
-        webView.setLayoutParams(new LinearLayout.LayoutParams(-1,0,1f));
+        webView.setLayoutParams(new LinearLayout.LayoutParams(-1, 0, 1f));
+        webView.setBackgroundColor(android.graphics.Color.rgb(244,247,251));
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
         WebSettings ws = webView.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
         ws.setAllowFileAccess(true);
-        webView.setWebViewClient(new WebViewClient());
+        ws.setTextZoom(100);
+        ws.setLoadWithOverviewMode(false);
+        ws.setUseWideViewPort(false);
+
+        webView.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                view.evaluateJavascript("document.documentElement.style.webkitTextSizeAdjust='100%';", null);
+            }
+        });
         webView.addJavascriptInterface(new Bridge(), "Android");
         root.addView(webView);
+
         banner = new AdView(this);
         banner.setAdSize(AdSize.BANNER);
         banner.setAdUnitId(BANNER_ID);
         banner.setLayoutParams(new LinearLayout.LayoutParams(-1, AdSize.BANNER.getHeightInPixels(this)));
         root.addView(banner);
+
         setContentView(root);
         banner.loadAd(new AdRequest.Builder().build());
         loadInterstitial();
         webView.loadUrl("file:///android_asset/index.html");
+
+        if (Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                this::handleSystemBack
+            );
+        }
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void applySafeInsets(View root) {
+        final int extra = dp(5);
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            int left = 0, top = 0, right = 0, bottom = 0;
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                left = bars.left; top = bars.top; right = bars.right; bottom = bars.bottom;
+            } else {
+                left = insets.getSystemWindowInsetLeft();
+                top = insets.getSystemWindowInsetTop();
+                right = insets.getSystemWindowInsetRight();
+                bottom = insets.getSystemWindowInsetBottom();
+            }
+            v.setPadding(left + extra, top + extra, right + extra, bottom + extra);
+            return insets;
+        });
+        root.requestApplyInsets();
     }
 
     private void loadInterstitial() {
@@ -58,7 +112,7 @@ public class MainActivity extends Activity {
     }
 
     private void continueQuiz() {
-        webView.evaluateJavascript("window.afterAdStart && window.afterAdStart();", null);
+        if (webView != null) webView.evaluateJavascript("window.afterAdStart && window.afterAdStart();", null);
     }
 
     public class Bridge {
@@ -101,7 +155,20 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void handleSystemBack() {
+        if (backRequestRunning) return;
+        if (webView == null) { finish(); return; }
+        backRequestRunning = true;
+        webView.evaluateJavascript("(window.handleNativeBack && window.handleNativeBack()) ? true : false;", result -> {
+            backRequestRunning = false;
+            if ("true".equals(result)) return;
+            if (webView.canGoBack()) webView.goBack();
+            else finish();
+        });
+    }
+
+    @SuppressWarnings("deprecation")
     @Override public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack(); else super.onBackPressed();
+        handleSystemBack();
     }
 }
