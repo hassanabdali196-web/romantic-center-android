@@ -20,8 +20,8 @@ public class MainActivity extends Activity {
     private InterstitialAd interstitial;
     private boolean backRequestRunning = false;
 
-    // Test ads are used only in debug builds. Release builds are ad-free until real AdMob IDs are configured.
-    private static final boolean ADS_ENABLED = BuildConfig.DEBUG;
+    // Commercial release is ad-free until real production AdMob IDs are configured.
+    private static final boolean ADS_ENABLED = false;
     private static final String BANNER_ID = "ca-app-pub-3940256099942544/6300978111";
     private static final String INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712";
 
