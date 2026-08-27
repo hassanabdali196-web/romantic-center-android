@@ -2,20 +2,45 @@ plugins {
     id 'com.android.application'
 }
 
+def ksPath = System.getenv('NATIONAL_EXAM_KEYSTORE')
+def ksPass = System.getenv('NATIONAL_EXAM_KEYSTORE_PASSWORD')
+def keyAliasValue = System.getenv('NATIONAL_EXAM_KEY_ALIAS') ?: 'nationalexam'
+def keyPassValue = System.getenv('NATIONAL_EXAM_KEY_PASSWORD')
+
 android {
     namespace 'com.nationalexam.iraq'
     compileSdk 35
+
     defaultConfig {
         applicationId 'com.nationalexam.iraq'
         minSdk 23
         targetSdk 35
-        versionCode 2
-        versionName '1.0.1'
+        versionCode 3
+        versionName '1.1.0'
     }
+
+    signingConfigs {
+        release {
+            if (ksPath && ksPass && keyPassValue) {
+                storeFile file(ksPath)
+                storePassword ksPass
+                keyAlias keyAliasValue
+                keyPassword keyPassValue
+            }
+        }
+    }
+
     buildTypes {
-        debug { minifyEnabled false }
-        release { minifyEnabled false }
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+        }
     }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
