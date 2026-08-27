@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "RomanticCenter"
 include(":app")
 include(":basra_market")
+include(":national_exam")
