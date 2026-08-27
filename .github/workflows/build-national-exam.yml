@@ -1,4 +1,4 @@
-name: Build National Exam Iraq APK
+name: Build National Exam Iraq Play Release
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - 'national_exam/**'
       - 'settings.gradle'
+      - 'PRIVACY_POLICY.md'
       - '.github/workflows/build-national-exam.yml'
   workflow_dispatch:
 
@@ -23,11 +24,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p national_exam/src/main/assets
-          cat national_exam/buildsrc/v101.part* | base64 -d | gunzip > national_exam/src/main/assets/index.html
+          cat national_exam/buildsrc/index.b64.part* | base64 -d | gunzip > national_exam/src/main/assets/index.html
           grep -q "الاختبار الوطني" national_exam/src/main/assets/index.html
           grep -q "window.QUESTION_BANK" national_exam/src/main/assets/index.html
           grep -q "handleNativeBack" national_exam/src/main/assets/index.html
-          grep -q "data-choice-index" national_exam/src/main/assets/index.html
+          grep -q "quiz-actions" national_exam/src/main/assets/index.html
+          grep -q "السؤال التالي" national_exam/src/main/assets/index.html
+          grep -q "overflow-y:auto" national_exam/src/main/assets/index.html
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -46,23 +49,67 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build APK
-        run: gradle --no-daemon :national_exam:assembleDebug
-
-      - name: Verify APK
+      - name: Generate upload signing key
+        shell: bash
         run: |
-          test -s national_exam/build/outputs/apk/debug/national_exam-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging national_exam/build/outputs/apk/debug/national_exam-debug.apk | grep -q "package: name='com.nationalexam.iraq'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging national_exam/build/outputs/apk/debug/national_exam-debug.apk | grep -q "versionName='1.0.1'"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging national_exam/build/outputs/apk/debug/national_exam-debug.apk | grep -q "application-icon"
+          set -euo pipefail
+          PASS=$(openssl rand -hex 24)
+          KEYSTORE="$GITHUB_WORKSPACE/national_exam/upload-keystore.jks"
+          keytool -genkeypair -v \
+            -keystore "$KEYSTORE" \
+            -storepass "$PASS" \
+            -keypass "$PASS" \
+            -alias nationalexam \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 10000 \
+            -dname "CN=National Exam Iraq, OU=Android, O=National Exam Iraq, L=Basra, ST=Basra, C=IQ"
+          echo "NATIONAL_EXAM_KEYSTORE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "NATIONAL_EXAM_KEYSTORE_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "NATIONAL_EXAM_KEY_PASSWORD=$PASS" >> "$GITHUB_ENV"
+          echo "NATIONAL_EXAM_KEY_ALIAS=nationalexam" >> "$GITHUB_ENV"
+          cat > National-Exam-Iraq-signing-info.txt <<EOF
+          Application ID: com.nationalexam.iraq
+          Version: 1.1.0
+          Version code: 3
+          Key alias: nationalexam
+          Keystore password: $PASS
+          Key password: $PASS
+          IMPORTANT: Keep the .jks file and this password file permanently. They are required for future updates if this upload key is registered in Google Play.
+          EOF
 
-      - name: Prepare APK
-        run: cp national_exam/build/outputs/apk/debug/national_exam-debug.apk National-Exam-Iraq-v1.0.1.apk
+      - name: Build signed release APK and AAB
+        run: gradle --no-daemon :national_exam:assembleRelease :national_exam:bundleRelease
 
-      - name: Upload APK
+      - name: Verify release outputs
+        run: |
+          set -euo pipefail
+          APK=national_exam/build/outputs/apk/release/national_exam-release.apk
+          AAB=national_exam/build/outputs/bundle/release/national_exam-release.aab
+          test -s "$APK"
+          test -s "$AAB"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "package: name='com.nationalexam.iraq'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "versionName='1.1.0'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -q "application-icon"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          jarsigner -verify -verbose -certs "$AAB" >/dev/null
+
+      - name: Prepare commercial release files
+        run: |
+          cp national_exam/build/outputs/apk/release/national_exam-release.apk National-Exam-Iraq-v1.1.0-Commercial.apk
+          cp national_exam/build/outputs/bundle/release/national_exam-release.aab National-Exam-Iraq-v1.1.0-Google-Play.aab
+          cp national_exam/upload-keystore.jks National-Exam-Iraq-upload-key.jks
+          cp PRIVACY_POLICY.md National-Exam-Iraq-Privacy-Policy.md
+
+      - name: Upload commercial release package
         uses: actions/upload-artifact@v4
         with:
-          name: National-Exam-Iraq-v1.0.1-APK
-          path: National-Exam-Iraq-v1.0.1.apk
+          name: National-Exam-Iraq-v1.1.0-Commercial-Release
+          path: |
+            National-Exam-Iraq-v1.1.0-Commercial.apk
+            National-Exam-Iraq-v1.1.0-Google-Play.aab
+            National-Exam-Iraq-upload-key.jks
+            National-Exam-Iraq-signing-info.txt
+            National-Exam-Iraq-Privacy-Policy.md
           if-no-files-found: error
           retention-days: 30
