@@ -6,7 +6,10 @@
         android:allowBackup="true"
         android:label="الاختبار الوطني"
         android:theme="@style/AppTheme"
-        android:supportsRtl="true">
+        android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher"
+        android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true">
         <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>
         <activity android:name=".MainActivity" android:exported="true">
