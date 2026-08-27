@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p national_exam/src/main/assets
-          cat national_exam/buildsrc/index.b64.part* | base64 -d | gunzip > national_exam/src/main/assets/index.html
+          cat national_exam/buildsrc/v101.part* | base64 -d | gunzip > national_exam/src/main/assets/index.html
           grep -q "الاختبار الوطني" national_exam/src/main/assets/index.html
           grep -q "window.QUESTION_BANK" national_exam/src/main/assets/index.html
           grep -q "handleNativeBack" national_exam/src/main/assets/index.html
