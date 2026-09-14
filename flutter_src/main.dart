@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -237,8 +237,33 @@ class PortalPage extends StatefulWidget {
 }
 
 class _PortalPageState extends State<PortalPage> {
-  InAppWebViewController? controller;
+  late final WebViewController controller;
   double progress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..addJavaScriptChannel(
+        'MizanNative',
+        onMessageReceived: (message) async {
+          final id = message.message;
+          final value = await _scanCode();
+          final safe = value.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\n', '');
+          final safeId = id.replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+          await controller.runJavaScript("if(window.mizanScanResult){window.mizanScanResult('$safeId','$safe');}");
+        },
+      )
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (p) => setState(() => progress = p / 100),
+          onPageFinished: (_) => _injectBridge(),
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+  }
 
   Future<String> _scanCode() async {
     if (!(Platform.isAndroid || Platform.isIOS)) return '';
@@ -247,14 +272,10 @@ class _PortalPageState extends State<PortalPage> {
   }
 
   Future<void> _injectBridge() async {
-    if (controller == null) return;
-    await controller!.evaluateJavascript(source: '''
-      window.MizanNative = window.MizanNative || {};
-      window.MizanNative.scanCode = function(id) {
-        window.flutter_inappwebview.callHandler('scanCode').then(function(value) {
-          if (window.mizanScanResult) window.mizanScanResult(id, value || '');
-        });
-      };
+    await controller.runJavaScript('''
+      window.MizanNativeBridge = window.MizanNativeBridge || {};
+      window.MizanNativeBridge.scanCode = function(id) { MizanNative.postMessage(id); };
+      window.MizanNative = window.MizanNativeBridge;
     ''');
   }
 
@@ -266,26 +287,12 @@ class _PortalPageState extends State<PortalPage> {
         appBar: AppBar(
           title: Text(widget.title),
           actions: [
-            IconButton(onPressed: () => controller?.reload(), icon: const Icon(Icons.refresh_rounded)),
+            IconButton(onPressed: controller.reload, icon: const Icon(Icons.refresh_rounded)),
           ],
         ),
         body: Stack(
           children: [
-            InAppWebView(
-              initialUrlRequest: URLRequest(url: WebUri(widget.url)),
-              initialSettings: InAppWebViewSettings(
-                javaScriptEnabled: true,
-                mediaPlaybackRequiresUserGesture: false,
-                allowsInlineMediaPlayback: true,
-                transparentBackground: false,
-              ),
-              onWebViewCreated: (c) {
-                controller = c;
-                c.addJavaScriptHandler(handlerName: 'scanCode', callback: (args) async => await _scanCode());
-              },
-              onLoadStop: (c, u) async => _injectBridge(),
-              onProgressChanged: (c, p) => setState(() => progress = p / 100),
-            ),
+            WebViewWidget(controller: controller),
             if (progress < 1) LinearProgressIndicator(value: progress, color: cyan, backgroundColor: const Color(0xFFE7EFF7)),
           ],
         ),
