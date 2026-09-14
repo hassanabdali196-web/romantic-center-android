@@ -25,6 +25,15 @@ jobs:
           flutter create --org com.mizancode --project-name mizancode --platforms=android,ios,windows buildapp
           cp flutter_src/pubspec.yaml buildapp/pubspec.yaml
           cp flutter_src/main.dart buildapp/lib/main.dart
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('buildapp/lib/main.dart')
+          s=p.read_text()
+          cloud='https://lean-enlightened-javabytecode--hassanabdali196.replit.app'
+          s=s.replace("String serverUrl = '';", f"String serverUrl = '{cloud}';")
+          s=s.replace("p.getString('server_url') ?? ''", f"p.getString('server_url') ?? '{cloud}'")
+          p.write_text(s)
+          PY
 
       - name: Android permissions and network config
         run: |
@@ -46,11 +55,11 @@ jobs:
         run: flutter build apk --release
 
       - name: Rename APK
-        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.1.apk
+        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.2_Cloud.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MizanCode-APK
-          path: MizanCode_v4.1.apk
+          name: MizanCode-Cloud-APK
+          path: MizanCode_v4.2_Cloud.apk
           retention-days: 30
