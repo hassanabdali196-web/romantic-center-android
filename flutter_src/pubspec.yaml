@@ -14,24 +14,12 @@ dependencies:
   mobile_scanner: ^7.1.2
   shared_preferences: ^2.5.3
   google_fonts: ^6.3.1
+  flutter_svg: ^2.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/mizan_logo.png
-
-flutter_launcher_icons:
-  android: true
-  ios: true
-  image_path: assets/mizan_logo.png
-  adaptive_icon_background: '#062A52'
-  adaptive_icon_foreground: assets/mizan_logo.png
-  windows:
-    generate: true
-    image_path: assets/mizan_logo.png
