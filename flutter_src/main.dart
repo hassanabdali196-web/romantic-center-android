@@ -1,0 +1,365 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const navy = Color(0xFF062A52);
+const navy2 = Color(0xFF0A3A70);
+const cyan = Color(0xFF11D5D5);
+const blue = Color(0xFF168BFF);
+const bg = Color(0xFFF4F8FC);
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MizanCodeApp());
+}
+
+class MizanCodeApp extends StatelessWidget {
+  const MizanCodeApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: navy, brightness: Brightness.light),
+      scaffoldBackgroundColor: bg,
+    );
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'MizanCode | ميزان كود',
+      theme: base.copyWith(
+        textTheme: GoogleFonts.tajawalTextTheme(base.textTheme),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: navy,
+          foregroundColor: Colors.white,
+          centerTitle: true,
+        ),
+      ),
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String serverUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final p = await SharedPreferences.getInstance();
+    setState(() => serverUrl = p.getString('server_url') ?? '');
+  }
+
+  Future<void> _configure() async {
+    final c = TextEditingController(text: serverUrl);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ربط خادم ميزان كود', textAlign: TextAlign.right),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('اكتب رابط الخادم السحابي أو عنوان السيرفر داخل الشبكة.', textAlign: TextAlign.right),
+            const SizedBox(height: 12),
+            TextField(
+              controller: c,
+              keyboardType: TextInputType.url,
+              textDirection: TextDirection.ltr,
+              decoration: const InputDecoration(
+                hintText: 'https://your-server.com',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('حفظ')),
+        ],
+      ),
+    );
+    if (result == null || result.isEmpty) return;
+    var v = result;
+    if (!v.startsWith('http://') && !v.startsWith('https://')) v = 'https://$v';
+    while (v.endsWith('/')) v = v.substring(0, v.length - 1);
+    final p = await SharedPreferences.getInstance();
+    await p.setString('server_url', v);
+    setState(() => serverUrl = v);
+  }
+
+  Future<void> _open(String path, String title) async {
+    if (serverUrl.isEmpty) {
+      await _configure();
+      if (serverUrl.isEmpty) return;
+    }
+    if (!mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => PortalPage(title: title, url: '$serverUrl$path')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [navy, navy2], begin: Alignment.topRight, end: Alignment.bottomLeft),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: const [BoxShadow(color: Color(0x22062A52), blurRadius: 24, offset: Offset(0, 12))],
+                ),
+                child: Column(
+                  children: [
+                    Image.asset('assets/mizan_logo.png', height: 132, fit: BoxFit.contain),
+                    const SizedBox(height: 8),
+                    Text('ميزان كود', style: GoogleFonts.tajawal(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
+                    Text('MizanCode', style: GoogleFonts.poppins(color: cyan, fontSize: 20, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    const Text('حلول برمجية وتطبيقات وأنظمة محاسبية', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              _card(
+                icon: Icons.point_of_sale_rounded,
+                title: 'نظام الأعمال والكاشير',
+                subtitle: 'المبيعات • المنتجات • الديون • المخزون • التقارير • الذكاء الاصطناعي',
+                onTap: () => _open('/', 'MizanCode Business'),
+              ),
+              const SizedBox(height: 14),
+              _card(
+                icon: Icons.workspace_premium_rounded,
+                title: 'بطاقة الولاء والنقاط',
+                subtitle: 'رصيد النقاط • مسح الفاتورة • استبدال النقاط بخصم عبر QR',
+                onTap: () => _open('/customer', 'MizanCode Loyalty'),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22), border: Border.all(color: const Color(0xFFE0EAF4))),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('الخادم الحالي', style: TextStyle(fontWeight: FontWeight.w800, color: navy)),
+                          const SizedBox(height: 4),
+                          Text(serverUrl.isEmpty ? 'غير مربوط بعد' : serverUrl, textDirection: TextDirection.ltr, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    FilledButton.icon(
+                      onPressed: _configure,
+                      icon: const Icon(Icons.settings_rounded),
+                      label: const Text('إعداد'),
+                      style: FilledButton.styleFrom(backgroundColor: navy),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Center(child: Text('MizanCode v4.1 • Android / iOS / Windows', style: TextStyle(color: Colors.black45, fontSize: 12))),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _card({required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFE0EAF4))),
+          child: Row(
+            children: [
+              Container(
+                width: 62,
+                height: 62,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [cyan, blue], begin: Alignment.topRight, end: Alignment.bottomLeft),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(icon, color: navy, size: 32),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w800, color: navy, fontSize: 18)),
+                    const SizedBox(height: 5),
+                    Text(subtitle, style: const TextStyle(color: Colors.black54, height: 1.5)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_back_ios_new_rounded, color: blue, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class PortalPage extends StatefulWidget {
+  final String title;
+  final String url;
+  const PortalPage({super.key, required this.title, required this.url});
+  @override
+  State<PortalPage> createState() => _PortalPageState();
+}
+
+class _PortalPageState extends State<PortalPage> {
+  InAppWebViewController? controller;
+  double progress = 0;
+
+  Future<String> _scanCode() async {
+    if (!(Platform.isAndroid || Platform.isIOS)) return '';
+    final value = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => const ScannerPage()));
+    return value ?? '';
+  }
+
+  Future<void> _injectBridge() async {
+    if (controller == null) return;
+    await controller!.evaluateJavascript(source: '''
+      window.MizanNative = window.MizanNative || {};
+      window.MizanNative.scanCode = function(id) {
+        window.flutter_inappwebview.callHandler('scanCode').then(function(value) {
+          if (window.mizanScanResult) window.mizanScanResult(id, value || '');
+        });
+      };
+    ''');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+          actions: [
+            IconButton(onPressed: () => controller?.reload(), icon: const Icon(Icons.refresh_rounded)),
+          ],
+        ),
+        body: Stack(
+          children: [
+            InAppWebView(
+              initialUrlRequest: URLRequest(url: WebUri(widget.url)),
+              initialSettings: InAppWebViewSettings(
+                javaScriptEnabled: true,
+                mediaPlaybackRequiresUserGesture: false,
+                allowsInlineMediaPlayback: true,
+                transparentBackground: false,
+              ),
+              onWebViewCreated: (c) {
+                controller = c;
+                c.addJavaScriptHandler(handlerName: 'scanCode', callback: (args) async => await _scanCode());
+              },
+              onLoadStop: (c, u) async => _injectBridge(),
+              onProgressChanged: (c, p) => setState(() => progress = p / 100),
+            ),
+            if (progress < 1) LinearProgressIndicator(value: progress, color: cyan, backgroundColor: const Color(0xFFE7EFF7)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ScannerPage extends StatefulWidget {
+  const ScannerPage({super.key});
+  @override
+  State<ScannerPage> createState() => _ScannerPageState();
+}
+
+class _ScannerPageState extends State<ScannerPage> {
+  bool done = false;
+  final controller = MobileScannerController(torchEnabled: false, formats: const [BarcodeFormat.qrCode, BarcodeFormat.code128, BarcodeFormat.ean13, BarcodeFormat.ean8]);
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(title: const Text('قارئ الباركود / QR')),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          MobileScanner(
+            controller: controller,
+            onDetect: (capture) {
+              if (done || capture.barcodes.isEmpty) return;
+              final value = capture.barcodes.first.rawValue;
+              if (value == null || value.isEmpty) return;
+              done = true;
+              Navigator.pop(context, value);
+            },
+          ),
+          Center(
+            child: Container(
+              width: 270,
+              height: 210,
+              decoration: BoxDecoration(border: Border.all(color: cyan, width: 3), borderRadius: BorderRadius.circular(22)),
+            ),
+          ),
+          Positioned(
+            bottom: 34,
+            left: 24,
+            right: 24,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'torch',
+                  backgroundColor: navy,
+                  foregroundColor: Colors.white,
+                  onPressed: controller.toggleTorch,
+                  child: const Icon(Icons.flashlight_on_rounded),
+                ),
+                const SizedBox(width: 18),
+                FloatingActionButton(
+                  heroTag: 'cam',
+                  backgroundColor: navy,
+                  foregroundColor: Colors.white,
+                  onPressed: controller.switchCamera,
+                  child: const Icon(Icons.cameraswitch_rounded),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
