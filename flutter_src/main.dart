@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,6 +11,7 @@ const navy2 = Color(0xFF0A3A70);
 const cyan = Color(0xFF11D5D5);
 const blue = Color(0xFF168BFF);
 const bg = Color(0xFFF4F8FC);
+const mizanLogoSvg = '''<svg width="360" height="360" viewBox="0 0 360 360" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#18E0D0"/><stop offset="1" stop-color="#168BFF"/></linearGradient></defs><rect width="360" height="360" rx="72" fill="#062A52"/><circle cx="180" cy="52" r="22" fill="url(#g)"/><path d="M180 82v140" stroke="url(#g)" stroke-width="28" stroke-linecap="round"/><path d="M90 103c38-18 142-18 180 0" fill="none" stroke="url(#g)" stroke-width="15" stroke-linecap="round"/><path d="M82 116l-38 54c-10 15 1 36 20 36h54c19 0 30-21 20-36l-38-54z" fill="#0A3A70"/><path d="M278 116l-38 54c-10 15 1 36 20 36h54c19 0 30-21 20-36l-38-54z" fill="#0A3A70"/><path d="M91 157l-18 18 18 18" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="M274 153l-14 44M282 157l18 18-18 18" fill="none" stroke="#18E0D0" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="M115 235c34 28 96 28 130 0" fill="none" stroke="#168BFF" stroke-width="13" stroke-linecap="round"/></svg>''';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -127,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: Column(
                   children: [
-                    Image.asset('assets/mizan_logo.png', height: 132, fit: BoxFit.contain),
+                    SvgPicture.string(mizanLogoSvg, height: 132),
                     const SizedBox(height: 8),
                     Text('ميزان كود', style: GoogleFonts.tajawal(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800)),
                     Text('MizanCode', style: GoogleFonts.poppins(color: cyan, fontSize: 20, fontWeight: FontWeight.w700)),
