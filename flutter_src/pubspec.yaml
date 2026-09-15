@@ -1,7 +1,7 @@
 name: mizancode
 publish_to: 'none'
 description: MizanCode unified Flutter client for business and loyalty.
-version: 4.1.1+42
+version: 4.2.0+43
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -12,7 +12,6 @@ dependencies:
   cupertino_icons: ^1.0.8
   webview_flutter: ^4.13.0
   mobile_scanner: ^7.1.2
-  shared_preferences: ^2.5.3
   google_fonts: ^6.3.1
   flutter_svg: ^2.2.0
 
@@ -20,6 +19,17 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon.png
+  adaptive_icon_background: '#062A52'
+  adaptive_icon_foreground: assets/icon.png
+  min_sdk_android: 23
