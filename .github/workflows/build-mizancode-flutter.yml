@@ -26,18 +26,33 @@ jobs:
           cp flutter_src/pubspec.yaml buildapp/pubspec.yaml
           cp flutter_src/main.dart buildapp/lib/main.dart
 
-      - name: Inject exact verified Google Apps Script URL
+      - name: Inject verified Google URL and v4.8 POST fix
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
-          p = Path('buildapp/lib/main.dart')
-          s = p.read_text()
+
+          main = Path('buildapp/lib/main.dart')
+          s = main.read_text()
           exact = "https://script.google.com/macros/s/AKfycbz7zu55m1VYiMd05Jc6DIhaHlukzIoW92MDjbifU92DcIyS6JlQ1SaONV_2K3EPWo09Zg/exec"
           s = re.sub(r"const apiUrl = 'https://script\.google\.com/macros/s/[^']+/exec';", f"const apiUrl = '{exact}';", s)
-          s = re.sub(r'MizanCode v4\.[0-9]+ • Google Cloud', 'MizanCode v4.7 • Google Cloud', s)
-          p.write_text(s)
+          s = re.sub(r'MizanCode v4\.[0-9]+ • Google Cloud', 'MizanCode v4.8 • Google Cloud', s)
+
+          old = """  static Future<Map<String, dynamic>> post(Map<String, dynamic> body) async {\n    final r = await http\n        .post(Uri.parse(apiUrl), headers: const {'Content-Type': 'application/json'}, body: jsonEncode(body))\n        .timeout(const Duration(seconds: 25));\n    if (r.statusCode < 200 || r.statusCode >= 400) {\n      throw Exception('HTTP ${r.statusCode}');\n    }\n    return Map<String, dynamic>.from(jsonDecode(r.body));\n  }"""
+
+          new = """  static Future<Map<String, dynamic>> post(Map<String, dynamic> body) async {\n    final client = http.Client();\n    try {\n      final request = http.Request('POST', Uri.parse(apiUrl));\n      request.followRedirects = false;\n      request.headers['Content-Type'] = 'application/json';\n      request.body = jsonEncode(body);\n      final streamed = await client.send(request).timeout(const Duration(seconds: 25));\n\n      if (streamed.statusCode >= 300 && streamed.statusCode < 400) {\n        final location = streamed.headers['location'];\n        if (location == null || location.isEmpty) {\n          throw Exception('REDIRECT_WITHOUT_LOCATION');\n        }\n        final redirected = await client.get(Uri.parse(location)).timeout(const Duration(seconds: 25));\n        if (redirected.statusCode < 200 || redirected.statusCode >= 400) {\n          throw Exception('HTTP ${redirected.statusCode}');\n        }\n        return Map<String, dynamic>.from(jsonDecode(redirected.body));\n      }\n\n      final response = await http.Response.fromStream(streamed);\n      if (response.statusCode < 200 || response.statusCode >= 400) {\n        throw Exception('HTTP ${response.statusCode}');\n      }\n      return Map<String, dynamic>.from(jsonDecode(response.body));\n    } finally {\n      client.close();\n    }\n  }"""
+
+          if old not in s:
+              raise SystemExit('Expected Api.post block not found')
+          s = s.replace(old, new)
+          main.write_text(s)
+
+          pubspec = Path('buildapp/pubspec.yaml')
+          p = pubspec.read_text()
+          p = re.sub(r'^version:\s*.*$', 'version: 4.8.0+48', p, flags=re.M)
+          pubspec.write_text(p)
           print('Using API URL:', exact)
+          print('Applied manual Google ContentService redirect handling')
           PY
 
       - name: Android permissions, name and MizanCode launcher icon
@@ -78,19 +93,19 @@ jobs:
         run: flutter build apk --release
 
       - name: Rename APK
-        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.7_Google_Cloud_Verified.apk
+        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.8_Google_Cloud_POST_Fixed.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MizanCode-v4.7-Google-Cloud-Verified
-          path: MizanCode_v4.7_Google_Cloud_Verified.apk
+          name: MizanCode-v4.8-Google-Cloud-POST-Fixed
+          path: MizanCode_v4.8_Google_Cloud_POST_Fixed.apk
           retention-days: 30
 
       - name: Publish direct-download release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mizancode-v4.7-google-cloud-verified
-          name: MizanCode v4.7 Google Cloud Verified
+          tag_name: mizancode-v4.8-google-cloud-post-fixed
+          name: MizanCode v4.8 Google Cloud POST Fixed
           prerelease: true
-          files: MizanCode_v4.7_Google_Cloud_Verified.apk
+          files: MizanCode_v4.8_Google_Cloud_POST_Fixed.apk
