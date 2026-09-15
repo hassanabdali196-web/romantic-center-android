@@ -1,0 +1,100 @@
+name: Build MizanCode Windows Desktop
+
+on:
+  push:
+    branches: [ "mizancode-flutter" ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Create Windows Flutter project shell
+        shell: pwsh
+        run: |
+          if (Test-Path buildwin) { Remove-Item buildwin -Recurse -Force }
+          flutter create --org com.mizancode --project-name mizancode --platforms=windows buildwin
+          Copy-Item flutter_src/pubspec.yaml buildwin/pubspec.yaml -Force
+          Copy-Item flutter_src/main.dart buildwin/lib/main.dart -Force
+
+      - name: Apply MizanCode desktop branding and Google Cloud settings
+        shell: pwsh
+        run: |
+          $main = 'buildwin/lib/main.dart'
+          $s = Get-Content $main -Raw
+          $api = 'https://script.google.com/macros/s/AKfycbz7zu55m1VYiMd05Jc6DIhaHlukzIoW92MDjbifU92DcIyS6JlQ1SaONV_2K3EPWo09Zg/exec'
+          $s = [regex]::Replace($s, "const apiUrl = 'https://script\.google\.com/macros/s/[^']+/exec';", "const apiUrl = '$api';")
+          $s = [regex]::Replace($s, 'MizanCode v4\.[0-9]+ • Google Cloud', 'MizanCode Desktop v4.8 • Google Cloud')
+          Set-Content $main $s -Encoding UTF8
+
+          $pub = 'buildwin/pubspec.yaml'
+          $p = Get-Content $pub -Raw
+          $p = [regex]::Replace($p, '(?m)^version:\s*.*$', 'version: 4.8.0+48')
+          Set-Content $pub $p -Encoding UTF8
+
+          $cmake = 'buildwin/windows/CMakeLists.txt'
+          $c = Get-Content $cmake -Raw
+          $c = $c.Replace('set(BINARY_NAME "mizancode")', 'set(BINARY_NAME "MizanCode")')
+          Set-Content $cmake $c -Encoding UTF8
+
+          $runner = 'buildwin/windows/runner/main.cpp'
+          if (Test-Path $runner) {
+            $r = Get-Content $runner -Raw
+            $r = $r.Replace('L"mizancode"', 'L"MizanCode"')
+            Set-Content $runner $r -Encoding UTF8
+          }
+
+      - name: Get packages
+        working-directory: buildwin
+        run: flutter pub get
+
+      - name: Build Windows release
+        working-directory: buildwin
+        run: flutter build windows --release
+
+      - name: Package portable Windows app
+        shell: pwsh
+        run: |
+          $src = 'buildwin/build/windows/x64/runner/Release'
+          $dst = 'MizanCode_Desktop_v4.8_Windows'
+          if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+          Copy-Item $src $dst -Recurse
+          @"
+          MizanCode Desktop v4.8
+          ----------------------
+          1. Extract this ZIP completely.
+          2. Open the extracted folder.
+          3. Run MizanCode.exe.
+          4. Keep all DLL/data files in the same folder.
+
+          Cloud backend: Google Apps Script + Google Sheets
+          "@ | Set-Content "$dst/README.txt" -Encoding UTF8
+          Compress-Archive -Path "$dst/*" -DestinationPath 'MizanCode_Desktop_v4.8_Windows.zip' -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MizanCode-Desktop-v4.8-Windows
+          path: MizanCode_Desktop_v4.8_Windows.zip
+          retention-days: 30
+
+      - name: Publish Windows desktop release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mizancode-desktop-v4.8-windows
+          name: MizanCode Desktop v4.8 Windows
+          prerelease: true
+          files: MizanCode_Desktop_v4.8_Windows.zip
