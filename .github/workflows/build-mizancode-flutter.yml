@@ -9,7 +9,7 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -25,19 +25,8 @@ jobs:
           flutter create --org com.mizancode --project-name mizancode --platforms=android,ios,windows buildapp
           cp flutter_src/pubspec.yaml buildapp/pubspec.yaml
           cp flutter_src/main.dart buildapp/lib/main.dart
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('buildapp/lib/main.dart')
-          s=p.read_text()
-          cloud='https://lean-enlightened-javabytecode--hassanabdali196.replit.app'
-          s=s.replace("String serverUrl = '';", f"String serverUrl = '{cloud}';")
-          old="setState(() => serverUrl = p.getString('server_url') ?? '');"
-          new=f"await p.setString('server_url', '{cloud}');\n    setState(() => serverUrl = '{cloud}');"
-          s=s.replace(old, new)
-          p.write_text(s)
-          PY
 
-      - name: Android permissions, app name and MizanCode icon
+      - name: Android permissions, name and MizanCode launcher icon
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -77,9 +66,17 @@ jobs:
       - name: Rename APK
         run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.3_Cloud_Fixed.apk
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: MizanCode-v4.3-Cloud-Fixed
           path: MizanCode_v4.3_Cloud_Fixed.apk
           retention-days: 30
+
+      - name: Publish direct-download release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mizancode-v4.3-cloud-fixed
+          name: MizanCode v4.3 Cloud Fixed
+          prerelease: true
+          files: MizanCode_v4.3_Cloud_Fixed.apk
