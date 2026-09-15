@@ -1,7 +1,7 @@
 name: mizancode
 publish_to: 'none'
 description: MizanCode Flutter app connected to Google Apps Script and Google Sheets.
-version: 4.4.0+45
+version: 4.5.0+46
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
