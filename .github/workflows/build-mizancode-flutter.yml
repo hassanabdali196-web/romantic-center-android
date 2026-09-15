@@ -64,19 +64,19 @@ jobs:
         run: flutter build apk --release
 
       - name: Rename APK
-        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.3_Cloud_Fixed.apk
+        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.5_Google_Cloud.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MizanCode-v4.3-Cloud-Fixed
-          path: MizanCode_v4.3_Cloud_Fixed.apk
+          name: MizanCode-v4.5-Google-Cloud
+          path: MizanCode_v4.5_Google_Cloud.apk
           retention-days: 30
 
       - name: Publish direct-download release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mizancode-v4.3-cloud-fixed
-          name: MizanCode v4.3 Cloud Fixed
+          tag_name: mizancode-v4.5-google-cloud
+          name: MizanCode v4.5 Google Cloud
           prerelease: true
-          files: MizanCode_v4.3_Cloud_Fixed.apk
+          files: MizanCode_v4.5_Google_Cloud.apk
