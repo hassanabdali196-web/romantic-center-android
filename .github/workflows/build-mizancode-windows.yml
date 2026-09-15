@@ -148,3 +148,5 @@ jobs:
           name: MizanCode Desktop v4.8.1 Windows
           prerelease: true
           files: MizanCode_Desktop_v4.8.1_Windows.zip
+
+# trigger-build: 2026-09-15
