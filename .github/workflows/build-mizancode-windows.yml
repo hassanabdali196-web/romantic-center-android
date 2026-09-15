@@ -2,7 +2,8 @@ name: Build MizanCode Windows Desktop
 
 on:
   push:
-    branches: [ "mizancode-flutter" ]
+    branches:
+      - mizancode-flutter
   workflow_dispatch:
 
 jobs:
@@ -11,7 +12,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -22,7 +24,7 @@ jobs:
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
-      - name: Create Windows Flutter project shell
+      - name: Create Windows project
         shell: pwsh
         run: |
           if (Test-Path buildwin) { Remove-Item buildwin -Recurse -Force }
@@ -30,80 +32,8 @@ jobs:
           Copy-Item flutter_src/pubspec.yaml buildwin/pubspec.yaml -Force
           Copy-Item flutter_src/main.dart buildwin/lib/main.dart -Force
 
-      - name: Apply MizanCode desktop branding, verified cloud URL and POST fix
-        shell: pwsh
-        run: |
-          $main = 'buildwin/lib/main.dart'
-          $s = Get-Content $main -Raw
-          $api = 'https://script.google.com/macros/s/AKfycbz7zu55m1VYiMd05Jc6DIhaHlukzIoW92MDjbifU92DcIyS6JlQ1SaONV_2K3EPWo09Zg/exec'
-          $s = [regex]::Replace($s, "const apiUrl = 'https://script\.google\.com/macros/s/[^']+/exec';", "const apiUrl = '$api';")
-          $s = [regex]::Replace($s, 'MizanCode v4\.[0-9]+ • Google Cloud', 'MizanCode Desktop v4.8 • Google Cloud')
-
-          $old = @'
-  static Future<Map<String, dynamic>> post(Map<String, dynamic> body) async {
-    final r = await http
-        .post(Uri.parse(apiUrl), headers: const {'Content-Type': 'application/json'}, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 25));
-    if (r.statusCode < 200 || r.statusCode >= 400) {
-      throw Exception('HTTP ${r.statusCode}');
-    }
-    return Map<String, dynamic>.from(jsonDecode(r.body));
-  }
-'@
-
-          $new = @'
-  static Future<Map<String, dynamic>> post(Map<String, dynamic> body) async {
-    final client = http.Client();
-    try {
-      final request = http.Request('POST', Uri.parse(apiUrl));
-      request.followRedirects = false;
-      request.headers['Content-Type'] = 'application/json';
-      request.body = jsonEncode(body);
-      final streamed = await client.send(request).timeout(const Duration(seconds: 25));
-
-      if (streamed.statusCode >= 300 && streamed.statusCode < 400) {
-        final location = streamed.headers['location'];
-        if (location == null || location.isEmpty) {
-          throw Exception('REDIRECT_WITHOUT_LOCATION');
-        }
-        final redirected = await client.get(Uri.parse(location)).timeout(const Duration(seconds: 25));
-        if (redirected.statusCode < 200 || redirected.statusCode >= 400) {
-          throw Exception('HTTP ${redirected.statusCode}');
-        }
-        return Map<String, dynamic>.from(jsonDecode(redirected.body));
-      }
-
-      final response = await http.Response.fromStream(streamed);
-      if (response.statusCode < 200 || response.statusCode >= 400) {
-        throw Exception('HTTP ${response.statusCode}');
-      }
-      return Map<String, dynamic>.from(jsonDecode(response.body));
-    } finally {
-      client.close();
-    }
-  }
-'@
-
-          if (-not $s.Contains($old)) { throw 'Expected Api.post block not found' }
-          $s = $s.Replace($old, $new)
-          Set-Content $main $s -Encoding UTF8
-
-          $pub = 'buildwin/pubspec.yaml'
-          $p = Get-Content $pub -Raw
-          $p = [regex]::Replace($p, '(?m)^version:\s*.*$', 'version: 4.8.1+49')
-          Set-Content $pub $p -Encoding UTF8
-
-          $cmake = 'buildwin/windows/CMakeLists.txt'
-          $c = Get-Content $cmake -Raw
-          $c = $c.Replace('set(BINARY_NAME "mizancode")', 'set(BINARY_NAME "MizanCode")')
-          Set-Content $cmake $c -Encoding UTF8
-
-          $runner = 'buildwin/windows/runner/main.cpp'
-          if (Test-Path $runner) {
-            $r = Get-Content $runner -Raw
-            $r = $r.Replace('L"mizancode"', 'L"MizanCode"')
-            Set-Content $runner $r -Encoding UTF8
-          }
+      - name: Prepare MizanCode Desktop
+        run: python scripts/prepare_mizancode_windows.py
 
       - name: Get packages
         working-directory: buildwin
@@ -113,25 +43,14 @@ jobs:
         working-directory: buildwin
         run: flutter build windows --release
 
-      - name: Package portable Windows app
+      - name: Package portable app
         shell: pwsh
         run: |
           $src = 'buildwin/build/windows/x64/runner/Release'
           $dst = 'MizanCode_Desktop_v4.8.1_Windows'
           if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
           Copy-Item $src $dst -Recurse
-          @"
-          MizanCode Desktop v4.8.1
-          ------------------------
-          1. Extract this ZIP completely.
-          2. Open the extracted folder.
-          3. Run MizanCode.exe.
-          4. Keep all DLL/data files in the same folder.
-
-          Same MizanCode visual identity.
-          Cloud backend: Google Apps Script + Google Sheets.
-          Includes the POST redirect fix for creating customers and write operations.
-          "@ | Set-Content "$dst/README.txt" -Encoding UTF8
+          'MizanCode Desktop v4.8.1 - Extract the ZIP completely, then run MizanCode.exe. Keep all DLL and data files together.' | Set-Content "$dst/README.txt" -Encoding UTF8
           Compress-Archive -Path "$dst/*" -DestinationPath 'MizanCode_Desktop_v4.8.1_Windows.zip' -Force
 
       - name: Upload Windows artifact
@@ -141,12 +60,10 @@ jobs:
           path: MizanCode_Desktop_v4.8.1_Windows.zip
           retention-days: 30
 
-      - name: Publish Windows desktop release
+      - name: Publish Windows release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: mizancode-desktop-v4.8.1-windows
           name: MizanCode Desktop v4.8.1 Windows
           prerelease: true
           files: MizanCode_Desktop_v4.8.1_Windows.zip
-
-# trigger-build: 2026-09-15
