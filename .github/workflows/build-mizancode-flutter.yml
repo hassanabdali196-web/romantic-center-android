@@ -26,16 +26,18 @@ jobs:
           cp flutter_src/pubspec.yaml buildapp/pubspec.yaml
           cp flutter_src/main.dart buildapp/lib/main.dart
 
-      - name: Fix exact Google Apps Script deployment URL
+      - name: Inject exact verified Google Apps Script URL
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('buildapp/lib/main.dart')
           s = p.read_text()
-          s = s.replace('AKfycbz7zu55m1VYiMd05Jc6DIhaHlukzIoW92MDjbifU92DclyS6JlQ1SaONV_2K3EPWo09Zg',
-                        'AKfycbz7zu55m1VYiMd05Jc6DIhaHlukzloW92MDjbifU92DclyS6JlQ1SaONV_2K3EPWo09Zg')
-          s = s.replace('MizanCode v4.5 • Google Cloud', 'MizanCode v4.6 • Google Cloud')
+          exact = "https://script.google.com/macros/s/AKfycbz7zu55m1VYiMd05Jc6DIhaHlukzIoW92MDjbifU92DcIyS6JlQ1SaONV_2K3EPWo09Zg/exec"
+          s = re.sub(r"const apiUrl = 'https://script\.google\.com/macros/s/[^']+/exec';", f"const apiUrl = '{exact}';", s)
+          s = re.sub(r'MizanCode v4\.[0-9]+ • Google Cloud', 'MizanCode v4.7 • Google Cloud', s)
           p.write_text(s)
+          print('Using API URL:', exact)
           PY
 
       - name: Android permissions, name and MizanCode launcher icon
@@ -76,19 +78,19 @@ jobs:
         run: flutter build apk --release
 
       - name: Rename APK
-        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.6_Google_Cloud_Fixed.apk
+        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.7_Google_Cloud_Verified.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MizanCode-v4.6-Google-Cloud-Fixed
-          path: MizanCode_v4.6_Google_Cloud_Fixed.apk
+          name: MizanCode-v4.7-Google-Cloud-Verified
+          path: MizanCode_v4.7_Google_Cloud_Verified.apk
           retention-days: 30
 
       - name: Publish direct-download release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mizancode-v4.6-google-cloud-fixed
-          name: MizanCode v4.6 Google Cloud Fixed
+          tag_name: mizancode-v4.7-google-cloud-verified
+          name: MizanCode v4.7 Google Cloud Verified
           prerelease: true
-          files: MizanCode_v4.6_Google_Cloud_Fixed.apk
+          files: MizanCode_v4.7_Google_Cloud_Verified.apk
