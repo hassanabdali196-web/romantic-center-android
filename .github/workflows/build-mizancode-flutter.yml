@@ -26,6 +26,18 @@ jobs:
           cp flutter_src/pubspec.yaml buildapp/pubspec.yaml
           cp flutter_src/main.dart buildapp/lib/main.dart
 
+      - name: Fix exact Google Apps Script deployment URL
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('buildapp/lib/main.dart')
+          s = p.read_text()
+          s = s.replace('AKfycbz7zu55m1VYiMd05Jc6DIhaHlukzIoW92MDjbifU92DclyS6JlQ1SaONV_2K3EPWo09Zg',
+                        'AKfycbz7zu55m1VYiMd05Jc6DIhaHlukzloW92MDjbifU92DclyS6JlQ1SaONV_2K3EPWo09Zg')
+          s = s.replace('MizanCode v4.5 • Google Cloud', 'MizanCode v4.6 • Google Cloud')
+          p.write_text(s)
+          PY
+
       - name: Android permissions, name and MizanCode launcher icon
         run: |
           python3 - <<'PY'
@@ -64,19 +76,19 @@ jobs:
         run: flutter build apk --release
 
       - name: Rename APK
-        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.5_Google_Cloud.apk
+        run: cp buildapp/build/app/outputs/flutter-apk/app-release.apk MizanCode_v4.6_Google_Cloud_Fixed.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MizanCode-v4.5-Google-Cloud
-          path: MizanCode_v4.5_Google_Cloud.apk
+          name: MizanCode-v4.6-Google-Cloud-Fixed
+          path: MizanCode_v4.6_Google_Cloud_Fixed.apk
           retention-days: 30
 
       - name: Publish direct-download release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mizancode-v4.5-google-cloud
-          name: MizanCode v4.5 Google Cloud
+          tag_name: mizancode-v4.6-google-cloud-fixed
+          name: MizanCode v4.6 Google Cloud Fixed
           prerelease: true
-          files: MizanCode_v4.5_Google_Cloud.apk
+          files: MizanCode_v4.6_Google_Cloud_Fixed.apk
