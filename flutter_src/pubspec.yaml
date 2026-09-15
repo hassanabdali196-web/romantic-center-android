@@ -1,7 +1,7 @@
 name: mizancode
 publish_to: 'none'
-description: MizanCode unified Flutter client for business and loyalty.
-version: 4.3.0+44
+description: MizanCode Flutter app connected to Google Apps Script and Google Sheets.
+version: 4.4.0+45
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -10,10 +10,12 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  webview_flutter: ^4.13.0
   mobile_scanner: ^7.1.2
   google_fonts: ^6.3.1
   flutter_svg: ^2.2.0
+  http: ^1.5.0
+  shared_preferences: ^2.5.3
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
