@@ -1,0 +1,26 @@
+name: mizancode_customer
+publish_to: 'none'
+description: MizanCode customer loyalty card app.
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  mobile_scanner: ^7.1.2
+  google_fonts: ^6.3.1
+  flutter_svg: ^2.2.0
+  http: ^1.5.0
+  shared_preferences: ^2.5.3
+  qr_flutter: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
