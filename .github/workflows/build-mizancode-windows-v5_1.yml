@@ -1,0 +1,127 @@
+name: Build MizanCode Desktop v5.1 Customer Sync
+
+on:
+  push:
+    branches: [ "mizancode-flutter" ]
+    paths:
+      - '.github/workflows/build-mizancode-windows-v5_1.yml'
+      - 'flutter_src/desktop_main.dart'
+      - 'flutter_src/pubspec_desktop.yaml'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Create Windows project shell
+        shell: pwsh
+        run: |
+          if (Test-Path builddesktop) { Remove-Item -Recurse -Force builddesktop }
+          flutter create --org com.mizancode --project-name mizancode_desktop --platforms=windows builddesktop
+          Copy-Item flutter_src/pubspec_desktop.yaml builddesktop/pubspec.yaml -Force
+          Copy-Item flutter_src/desktop_main.dart builddesktop/lib/main.dart -Force
+
+      - name: Inject v5.1 cloud customer synchronization
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('builddesktop/lib/main.dart')
+          s = p.read_text(encoding='utf-8')
+
+          old = """class CloudApi {\n  static Future<bool> health() async {"""
+          new = """class CloudApi {\n  static Future<Map<String,dynamic>?> get(Map<String,String> params) async {\n    try {\n      final uri = Uri.parse(apiUrl).replace(queryParameters: params);\n      final r = await http.get(uri).timeout(const Duration(seconds: 18));\n      if (r.statusCode < 200 || r.statusCode >= 400) return null;\n      return Map<String,dynamic>.from(jsonDecode(r.body));\n    } catch (_) { return null; }\n  }\n\n  static Future<bool> health() async {"""
+          if old not in s:
+              raise SystemExit('CloudApi anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = """    cloudOnline = await CloudApi.health();\n    lastSync = DateTime.now().toIso8601String();\n  }"""
+          new = """    cloudOnline = await CloudApi.health();\n    if (cloudOnline) {\n      await syncCustomers();\n    }\n    lastSync = DateTime.now().toIso8601String();\n  }"""
+          if old not in s:
+              raise SystemExit('init anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = """  Future<void> refreshCloud() async {\n    cloudOnline=await CloudApi.health();\n    lastSync=DateTime.now().toIso8601String();\n    notifyListeners();\n  }"""
+          new = """  Future<void> refreshCloud() async {\n    cloudOnline=await CloudApi.health();\n    if (cloudOnline) {\n      await syncCustomers();\n    }\n    lastSync=DateTime.now().toIso8601String();\n    notifyListeners();\n  }\n\n  Future<int> syncCustomers() async {\n    if (!cloudOnline) return 0;\n    final r = await CloudApi.get({'action':'list_customers'});\n    if (r == null || r['ok'] != true || r['customers'] is! List) return 0;\n    int added = 0;\n    for (final raw in (r['customers'] as List)) {\n      if (raw is! Map) continue;\n      final x = Map<String,dynamic>.from(raw);\n      final barcode = '${x['barcode'] ?? ''}'.trim();\n      if (barcode.isEmpty) continue;\n      final c = <String,dynamic>{\n        'id': x['customer_id'] ?? uid('CUS'),\n        'barcode': barcode,\n        'name': x['name'] ?? '',\n        'phone': x['phone'] ?? '',\n        'card_type': x['card_type'] == 'children' ? 'أطفال' : (x['card_type'] == 'family' ? 'عائلة' : (x['card_type'] ?? 'عائلة')),\n        'points': asInt(x['points']),\n        'total_spent': asDouble(x['total_spent_iqd']),\n        'active': x['active'] != false,\n        'created_at': x['created_at'] ?? '',\n        'cloud': true,\n      };\n      final i = customers.indexWhere((e) => '${e['barcode']}' == barcode);\n      if (i < 0) {\n        customers.add(c);\n        added++;\n      } else {\n        customers[i] = {...customers[i], ...c};\n      }\n    }\n    await _save('desktop_customers', customers);\n    notifyListeners();\n    return added;\n  }"""
+          if old not in s:
+              raise SystemExit('refresh anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = """class _CustomersPageState extends State<CustomersPage>{String q='';@override Widget build(BuildContext c){"""
+          new = """class _CustomersPageState extends State<CustomersPage>{String q='';bool syncing=false;\n  @override void initState(){super.initState();Future.microtask(() async {if(app.cloudOnline){setState(()=>syncing=true);await app.syncCustomers();if(mounted)setState(()=>syncing=false);}});}\n  Future<void> syncNow() async {setState(()=>syncing=true);final n=await app.syncCustomers();if(mounted){setState(()=>syncing=false);ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text(n>0?'تمت إضافة $n زبون جديد من التطبيق':'قائمة الزبائن محدثة')));}}\n  @override Widget build(BuildContext c){"""
+          if old not in s:
+              raise SystemExit('customers state anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = """FilledButton.icon(style:FilledButton.styleFrom(backgroundColor:navy,padding:const EdgeInsets.symmetric(horizontal:20,vertical:18)),onPressed:()=>customerDialog(c),icon:const Icon(Icons.person_add),label:const Text('إضافة زبون'))"""
+          new = """OutlinedButton.icon(onPressed:syncing?null:syncNow,icon:syncing?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.cloud_sync),label:const Text('مزامنة الزبائن')),const SizedBox(width:10),FilledButton.icon(style:FilledButton.styleFrom(backgroundColor:navy,padding:const EdgeInsets.symmetric(horizontal:20,vertical:18)),onPressed:()=>customerDialog(c),icon:const Icon(Icons.person_add),label:const Text('إضافة زبون'))"""
+          if old not in s:
+              raise SystemExit('customers toolbar anchor not found')
+          s = s.replace(old, new, 1)
+
+          s = s.replace('MizanCode Desktop v5.0 — واجهة سطح المكتب بنفس هوية ميزان كود','MizanCode Desktop v5.1 — مزامنة زبائن تطبيق الولاء')
+          p.write_text(s, encoding='utf-8')
+          print('Injected desktop customer cloud sync')
+
+      - name: Apply MizanCode desktop name
+        shell: pwsh
+        run: |
+          $p = 'builddesktop/windows/runner/main.cpp'
+          $s = Get-Content $p -Raw
+          $s = $s.Replace('L"mizancode_desktop"', 'L"MizanCode - ميزان كود"')
+          Set-Content $p $s -Encoding UTF8
+
+      - name: Get packages
+        working-directory: builddesktop
+        run: flutter pub get
+
+      - name: Analyze app code
+        working-directory: builddesktop
+        run: flutter analyze lib --no-fatal-infos
+
+      - name: Build Windows release
+        working-directory: builddesktop
+        run: flutter build windows --release
+
+      - name: Package portable app
+        shell: pwsh
+        run: |
+          $src = 'builddesktop/build/windows/x64/runner/Release'
+          $dst = 'MizanCode_Desktop_v5.1_Customer_Sync'
+          if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
+          Copy-Item -Recurse $src $dst
+          @"
+          MizanCode Desktop v5.1 — Customer Cloud Sync
+          ============================================
+          شغل الملف: mizancode_desktop.exe
+          هذه النسخة تزامن الزبائن المسجلين من تطبيق الولاء مع قائمة الزبائن على الحاسبة.
+          يتطلب Apps Script action=list_customers.
+          "@ | Set-Content "$dst/README.txt" -Encoding UTF8
+          Compress-Archive -Path "$dst/*" -DestinationPath 'MizanCode_Desktop_v5.1_Customer_Sync.zip' -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MizanCode-Desktop-v5.1-Customer-Sync
+          path: MizanCode_Desktop_v5.1_Customer_Sync.zip
+          retention-days: 30
+
+      - name: Publish Windows release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mizancode-desktop-v5.1-customer-sync
+          name: MizanCode Desktop v5.1 Customer Sync
+          prerelease: true
+          files: MizanCode_Desktop_v5.1_Customer_Sync.zip
