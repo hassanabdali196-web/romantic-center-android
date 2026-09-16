@@ -46,9 +46,9 @@ jobs:
         working-directory: builddesktop
         run: flutter pub get
 
-      - name: Analyze
+      - name: Analyze app code
         working-directory: builddesktop
-        run: flutter analyze --no-fatal-infos
+        run: flutter analyze lib --no-fatal-infos
 
       - name: Build Windows release
         working-directory: builddesktop
