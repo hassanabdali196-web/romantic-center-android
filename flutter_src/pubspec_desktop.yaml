@@ -1,0 +1,25 @@
+name: mizancode_desktop
+publish_to: 'none'
+description: MizanCode Windows desktop POS and accounting system.
+version: 5.0.0+50
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.3.1
+  flutter_svg: ^2.2.0
+  http: ^1.5.0
+  shared_preferences: ^2.5.3
+  qr_flutter: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
