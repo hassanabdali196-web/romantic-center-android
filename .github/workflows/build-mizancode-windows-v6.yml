@@ -1,0 +1,95 @@
+name: Build MizanCode Desktop v6 Professional
+
+on:
+  push:
+    branches: [ "mizancode-flutter" ]
+    paths:
+      - '.github/workflows/build-mizancode-windows-v6.yml'
+      - 'scripts/mizancode_v5_2_patch.py'
+      - 'scripts/mizancode_v6_patch.py'
+      - 'flutter_src/desktop_main.dart'
+      - 'flutter_src/pubspec_desktop_v6.yaml'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Create Windows project shell
+        shell: pwsh
+        run: |
+          if (Test-Path builddesktop) { Remove-Item -Recurse -Force builddesktop }
+          flutter create --org com.mizancode --project-name mizancode_desktop --platforms=windows builddesktop
+          Copy-Item flutter_src/pubspec_desktop_v6.yaml builddesktop/pubspec.yaml -Force
+          Copy-Item flutter_src/desktop_main.dart builddesktop/lib/main.dart -Force
+
+      - name: Apply v5.2 invoice sync foundation
+        run: python scripts/mizancode_v5_2_patch.py builddesktop/lib/main.dart
+
+      - name: Apply v6 professional upgrades
+        run: python scripts/mizancode_v6_patch.py builddesktop/lib/main.dart
+
+      - name: Apply MizanCode desktop name
+        shell: pwsh
+        run: |
+          $p = 'builddesktop/windows/runner/main.cpp'
+          $s = Get-Content $p -Raw
+          $s = $s.Replace('L"mizancode_desktop"', 'L"MizanCode Professional - ميزان كود"')
+          Set-Content $p $s -Encoding UTF8
+
+      - name: Get packages
+        working-directory: builddesktop
+        run: flutter pub get
+
+      - name: Analyze app code
+        working-directory: builddesktop
+        run: flutter analyze lib --no-fatal-infos
+
+      - name: Build Windows release
+        working-directory: builddesktop
+        run: flutter build windows --release
+
+      - name: Package portable app
+        shell: pwsh
+        run: |
+          $src = 'builddesktop/build/windows/x64/runner/Release'
+          $dst = 'MizanCode_Desktop_v6.0_Professional'
+          if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
+          Copy-Item -Recurse $src $dst
+          @"
+          MizanCode Desktop v6.0 Professional
+          ==================================
+          التشغيل: mizancode_desktop.exe
+          أول دخول: admin / 1234
+          غيّر الرمز السري من المستخدمين والصلاحيات.
+          المزايا: بيع سريع، دفع مختلط، فاتورة اختيارية، QR، ديون ومدفوعات، تقارير، صلاحيات، تنبؤ ذكي.
+          "@ | Set-Content "$dst/README.txt" -Encoding UTF8
+          Compress-Archive -Path "$dst/*" -DestinationPath 'MizanCode_Desktop_v6.0_Professional.zip' -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MizanCode-Desktop-v6.0-Professional
+          path: MizanCode_Desktop_v6.0_Professional.zip
+          retention-days: 30
+
+      - name: Publish Windows release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mizancode-desktop-v6.0-professional
+          name: MizanCode Desktop v6.0 Professional
+          prerelease: true
+          files: MizanCode_Desktop_v6.0_Professional.zip
