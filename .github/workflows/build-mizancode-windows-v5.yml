@@ -1,0 +1,85 @@
+name: Build MizanCode Desktop v5
+
+on:
+  push:
+    branches: [ "mizancode-flutter" ]
+    paths:
+      - 'flutter_src/desktop_main.dart'
+      - 'flutter_src/pubspec_desktop.yaml'
+      - '.github/workflows/build-mizancode-windows-v5.yml'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Create Windows project shell
+        shell: pwsh
+        run: |
+          if (Test-Path builddesktop) { Remove-Item -Recurse -Force builddesktop }
+          flutter create --org com.mizancode --project-name mizancode_desktop --platforms=windows builddesktop
+          Copy-Item flutter_src/pubspec_desktop.yaml builddesktop/pubspec.yaml -Force
+          Copy-Item flutter_src/desktop_main.dart builddesktop/lib/main.dart -Force
+
+      - name: Apply MizanCode desktop name
+        shell: pwsh
+        run: |
+          $p = 'builddesktop/windows/runner/main.cpp'
+          $s = Get-Content $p -Raw
+          $s = $s.Replace('L"mizancode_desktop"', 'L"MizanCode - ميزان كود"')
+          Set-Content $p $s -Encoding UTF8
+
+      - name: Get packages
+        working-directory: builddesktop
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: builddesktop
+        run: flutter analyze --no-fatal-infos
+
+      - name: Build Windows release
+        working-directory: builddesktop
+        run: flutter build windows --release
+
+      - name: Package portable app
+        shell: pwsh
+        run: |
+          $src = 'builddesktop/build/windows/x64/runner/Release'
+          $dst = 'MizanCode_Desktop_v5.0_Windows'
+          if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
+          Copy-Item -Recurse $src $dst
+          @"
+          MizanCode Desktop v5.0
+          ======================
+          شغل الملف: mizancode_desktop.exe
+          لا تحذف ملفات DLL أو مجلد data لأنها ضرورية للتشغيل.
+          "@ | Set-Content "$dst/README.txt" -Encoding UTF8
+          Compress-Archive -Path "$dst/*" -DestinationPath 'MizanCode_Desktop_v5.0_Windows.zip' -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MizanCode-Desktop-v5.0-Windows
+          path: MizanCode_Desktop_v5.0_Windows.zip
+          retention-days: 30
+
+      - name: Publish Windows release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mizancode-desktop-v5.0-windows
+          name: MizanCode Desktop v5.0 Windows
+          prerelease: true
+          files: MizanCode_Desktop_v5.0_Windows.zip
