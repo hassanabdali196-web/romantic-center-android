@@ -58,6 +58,16 @@ jobs:
         working-directory: builddesktop
         run: flutter pub get
 
+      - name: Print generated source around errors
+        shell: pwsh
+        run: |
+          $lines = Get-Content 'builddesktop/lib/main.dart'
+          foreach ($r in @(@(365,390),@(630,685))) {
+            for ($i=$r[0]; $i -le $r[1] -and $i -le $lines.Count; $i++) {
+              Write-Host (("{0,4}: {1}" -f $i, $lines[$i-1]))
+            }
+          }
+
       - name: Analyze app code
         working-directory: builddesktop
         run: flutter analyze lib --no-fatal-infos
