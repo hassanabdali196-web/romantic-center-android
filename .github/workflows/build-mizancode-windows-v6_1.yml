@@ -7,6 +7,7 @@ on:
       - '.github/workflows/build-mizancode-windows-v6_1.yml'
       - 'scripts/mizancode_v5_2_patch.py'
       - 'scripts/mizancode_v6_patch.py'
+      - 'scripts/mizancode_v6_syntax_fix.py'
       - 'scripts/mizancode_v6_1_patch.py'
       - 'flutter_src/desktop_main.dart'
       - 'flutter_src/pubspec_desktop_v6.yaml'
@@ -43,6 +44,9 @@ jobs:
       - name: Apply v6 professional upgrades
         run: python scripts/mizancode_v6_patch.py builddesktop/lib/main.dart
 
+      - name: Fix v6 generated syntax
+        run: python scripts/mizancode_v6_syntax_fix.py builddesktop/lib/main.dart
+
       - name: Apply v6.1 fast checkout upgrades
         run: python scripts/mizancode_v6_1_patch.py builddesktop/lib/main.dart
 
@@ -57,16 +61,6 @@ jobs:
       - name: Get packages
         working-directory: builddesktop
         run: flutter pub get
-
-      - name: Print generated source around errors
-        shell: pwsh
-        run: |
-          $lines = Get-Content 'builddesktop/lib/main.dart'
-          foreach ($r in @(@(365,390),@(630,685))) {
-            for ($i=$r[0]; $i -le $r[1] -and $i -le $lines.Count; $i++) {
-              Write-Host (("{0,4}: {1}" -f $i, $lines[$i-1]))
-            }
-          }
 
       - name: Analyze app code
         working-directory: builddesktop
