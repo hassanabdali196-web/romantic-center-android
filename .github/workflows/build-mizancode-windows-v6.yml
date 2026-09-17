@@ -1,4 +1,4 @@
-name: Build MizanCode Desktop v6 Professional
+name: Build MizanCode Desktop v6.1 Professional
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - '.github/workflows/build-mizancode-windows-v6.yml'
       - 'scripts/mizancode_v5_2_patch.py'
       - 'scripts/mizancode_v6_patch.py'
+      - 'scripts/mizancode_v6_1_patch.py'
       - 'flutter_src/desktop_main.dart'
       - 'flutter_src/pubspec_desktop_v6.yaml'
   workflow_dispatch:
@@ -42,6 +43,9 @@ jobs:
       - name: Apply v6 professional upgrades
         run: python scripts/mizancode_v6_patch.py builddesktop/lib/main.dart
 
+      - name: Apply v6.1 fast checkout upgrades
+        run: python scripts/mizancode_v6_1_patch.py builddesktop/lib/main.dart
+
       - name: Apply MizanCode desktop name
         shell: pwsh
         run: |
@@ -66,30 +70,30 @@ jobs:
         shell: pwsh
         run: |
           $src = 'builddesktop/build/windows/x64/runner/Release'
-          $dst = 'MizanCode_Desktop_v6.0_Professional'
+          $dst = 'MizanCode_Desktop_v6.1_Professional'
           if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
           Copy-Item -Recurse $src $dst
           @"
-          MizanCode Desktop v6.0 Professional
+          MizanCode Desktop v6.1 Professional
           ==================================
           التشغيل: mizancode_desktop.exe
           أول دخول: admin / 1234
           غيّر الرمز السري من المستخدمين والصلاحيات.
-          المزايا: بيع سريع، دفع مختلط، فاتورة اختيارية، QR، ديون ومدفوعات، تقارير، صلاحيات، تنبؤ ذكي.
+          المزايا: إتمام بيع أسرع، فاتورة اختيارية، دفع مختلط بحقل المبلغ النقدي الواصل، مزامنة نقاط الزبون، استبدال نقاط بضغطة واحدة، QR، ديون ومدفوعات، تقارير، صلاحيات، تنبؤ ذكي.
           "@ | Set-Content "$dst/README.txt" -Encoding UTF8
-          Compress-Archive -Path "$dst/*" -DestinationPath 'MizanCode_Desktop_v6.0_Professional.zip' -Force
+          Compress-Archive -Path "$dst/*" -DestinationPath 'MizanCode_Desktop_v6.1_Professional.zip' -Force
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MizanCode-Desktop-v6.0-Professional
-          path: MizanCode_Desktop_v6.0_Professional.zip
+          name: MizanCode-Desktop-v6.1-Professional
+          path: MizanCode_Desktop_v6.1_Professional.zip
           retention-days: 30
 
       - name: Publish Windows release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mizancode-desktop-v6.0-professional
-          name: MizanCode Desktop v6.0 Professional
+          tag_name: mizancode-desktop-v6.1-professional
+          name: MizanCode Desktop v6.1 Professional
           prerelease: true
-          files: MizanCode_Desktop_v6.0_Professional.zip
+          files: MizanCode_Desktop_v6.1_Professional.zip
