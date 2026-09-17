@@ -8,6 +8,7 @@ on:
       - 'scripts/mizancode_v5_2_patch.py'
       - 'scripts/mizancode_v6_patch.py'
       - 'scripts/mizancode_v6_1_patch.py'
+      - 'scripts/mizancode_v6_1_redeem_fix.py'
       - 'flutter_src/desktop_main.dart'
       - 'flutter_src/pubspec_desktop_v6.yaml'
   workflow_dispatch:
@@ -45,6 +46,9 @@ jobs:
 
       - name: Apply v6.1 fast checkout upgrades
         run: python scripts/mizancode_v6_1_patch.py builddesktop/lib/main.dart
+
+      - name: Fix multi-block loyalty redemption sync
+        run: python scripts/mizancode_v6_1_redeem_fix.py builddesktop/lib/main.dart
 
       - name: Apply MizanCode desktop name
         shell: pwsh
