@@ -1,0 +1,77 @@
+name: MizanCode Desktop v6.1 Windows Build
+
+on:
+  push:
+    branches:
+      - mizancode-desktop-v61-20260919
+    paths:
+      - '.github/workflows/mizancode-desktop-v61.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Restore application source
+        shell: pwsh
+        run: |
+          $b64 = Get-Content 'mizancode_desktop_build/source.part00' -Raw
+          $b64 = $b64 -replace '\s',''
+          [IO.File]::WriteAllBytes('MizanCode_Base.zip', [Convert]::FromBase64String($b64))
+          New-Item -ItemType Directory -Force -Path buildsrc | Out-Null
+          Expand-Archive MizanCode_Base.zip -DestinationPath buildsrc -Force
+          Copy-Item 'mizancode_desktop_build/main.py' 'buildsrc/main.py' -Force
+          Get-ChildItem buildsrc -Recurse | Select-Object FullName,Length
+
+      - name: Install build dependencies
+        shell: pwsh
+        working-directory: buildsrc
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify source
+        shell: pwsh
+        working-directory: buildsrc
+        run: |
+          python -m py_compile main.py database.py cloud_api.py invoice.py
+          python -c "from database import Database; d=Database(); print('DB_OK', d.setting('POINTS_EARN')); d.close()"
+
+      - name: Prepare Windows icon
+        shell: pwsh
+        working-directory: buildsrc
+        run: |
+          python -c "from PIL import Image; im=Image.open('assets/icon.png').convert('RGBA'); im.save('assets/icon.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128)])"
+
+      - name: Build EXE
+        shell: pwsh
+        working-directory: buildsrc
+        run: |
+          pyinstaller --noconfirm --clean --windowed --onefile --name MizanCode_Desktop_v6.1 --icon assets/icon.ico --add-data "assets/icon.png;assets" main.py
+
+      - name: Verify EXE
+        shell: pwsh
+        working-directory: buildsrc
+        run: |
+          if (!(Test-Path 'dist/MizanCode_Desktop_v6.1.exe')) { throw 'EXE not generated' }
+          Get-Item 'dist/MizanCode_Desktop_v6.1.exe' | Format-List Name,Length,LastWriteTime
+          Get-FileHash 'dist/MizanCode_Desktop_v6.1.exe' -Algorithm SHA256
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: MizanCode_Desktop_v6.1_Professional
+          path: buildsrc/dist/MizanCode_Desktop_v6.1.exe
+          if-no-files-found: error
+          retention-days: 7
