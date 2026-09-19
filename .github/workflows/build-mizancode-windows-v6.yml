@@ -7,8 +7,9 @@ on:
       - '.github/workflows/build-mizancode-windows-v6.yml'
       - 'scripts/mizancode_v5_2_patch.py'
       - 'scripts/mizancode_v6_patch.py'
+      - 'scripts/mizancode_v6_syntax_fix.py'
       - 'scripts/mizancode_v6_1_patch.py'
-      - 'scripts/mizancode_v6_1_safe_patch.py'
+      - 'scripts/mizancode_v6_1_redeem_fix.py'
       - 'flutter_src/desktop_main.dart'
       - 'flutter_src/pubspec_desktop_v6.yaml'
   workflow_dispatch:
@@ -44,11 +45,14 @@ jobs:
       - name: Apply v6 professional upgrades
         run: python scripts/mizancode_v6_patch.py builddesktop/lib/main.dart
 
+      - name: Fix generated v6 Dart syntax
+        run: python scripts/mizancode_v6_syntax_fix.py builddesktop/lib/main.dart
+
       - name: Apply v6.1 fast checkout upgrades
         run: python scripts/mizancode_v6_1_patch.py builddesktop/lib/main.dart
 
-      - name: Apply safe loyalty cloud sync
-        run: python scripts/mizancode_v6_1_safe_patch.py builddesktop/lib/main.dart
+      - name: Apply v6.1 loyalty redemption sync fix
+        run: python scripts/mizancode_v6_1_redeem_fix.py builddesktop/lib/main.dart
 
       - name: Apply MizanCode desktop name
         shell: pwsh
@@ -83,7 +87,7 @@ jobs:
           التشغيل: mizancode_desktop.exe
           أول دخول: admin / 1234
           غيّر الرمز السري من المستخدمين والصلاحيات.
-          المزايا: إتمام بيع أسرع، فاتورة اختيارية، دفع مختلط بحقل المبلغ النقدي الواصل، مزامنة نقاط الزبون، استبدال نقاط بضغطة واحدة، QR، ديون ومدفوعات، تقارير، صلاحيات، تنبؤ ذكي.
+          المزايا: إتمام بيع فوري، فاتورة اختيارية، دفع مختلط بحقل المبلغ النقدي الواصل، مزامنة نقاط الزبون، استبدال نقاط بضغطة واحدة، QR، ديون ومدفوعات، تقارير، صلاحيات، تنبؤ ذكي.
           "@ | Set-Content "$dst/README.txt" -Encoding UTF8
           Compress-Archive -Path "$dst/*" -DestinationPath 'MizanCode_Desktop_v6.1_Professional.zip' -Force
 
@@ -102,4 +106,4 @@ jobs:
           prerelease: true
           files: MizanCode_Desktop_v6.1_Professional.zip
 
-# build trigger 2026-09-19
+# build trigger 2026-09-19T22:25+03:00
