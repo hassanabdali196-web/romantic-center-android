@@ -37,7 +37,8 @@ jobs:
           cd .build
           flutter create --platforms=android --org com.mizancode --project-name mizancode_customer_rebuild mizancode_customer_rebuild
           cat ../mizancode_customer_src/v1_6_overlay.part00 \
-              ../mizancode_customer_src/v1_6_overlay.part01 \
+              ../mizancode_customer_src/v1_6_overlay.part01a \
+              ../mizancode_customer_src/v1_6_overlay.part01b \
               ../mizancode_customer_src/v1_6_overlay.part02 \
               ../mizancode_customer_src/v1_6_overlay.part03 \
               ../mizancode_customer_src/v1_6_overlay.part04 \
