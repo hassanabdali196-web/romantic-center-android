@@ -1,7 +1,7 @@
 name: mizancode_customer
 publish_to: 'none'
 description: MizanCode customer loyalty card app.
-version: 1.0.0+1
+version: 1.2.1+4
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
@@ -16,7 +16,6 @@ dependencies:
   http: ^1.5.0
   shared_preferences: ^2.5.3
   qr_flutter: ^4.1.0
-  google_mobile_ads: ^9.1.0
 
 dev_dependencies:
   flutter_test:
