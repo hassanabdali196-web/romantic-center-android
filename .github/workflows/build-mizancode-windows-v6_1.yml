@@ -107,3 +107,5 @@ jobs:
           name: MizanCode Desktop v6.1 Fast Checkout
           prerelease: true
           files: MizanCode_Desktop_v6.1_FastCheckout.zip
+
+# trigger: 2026-09-19 fast-checkout build
