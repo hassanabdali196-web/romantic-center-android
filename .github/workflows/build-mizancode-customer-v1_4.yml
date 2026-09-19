@@ -7,6 +7,7 @@ on:
       - '.github/workflows/build-mizancode-customer-v1_4.yml'
       - 'scripts/mizancode_customer_v1_2_patch.py'
       - 'scripts/mizancode_customer_v1_3_patch.py'
+      - 'scripts/mizancode_customer_v1_4_syntax_fix.py'
       - 'flutter_src/customer_main.dart'
       - 'flutter_src/pubspec_customer.yaml'
   workflow_dispatch:
@@ -33,6 +34,7 @@ jobs:
           cp flutter_src/customer_main.dart buildcustomer/lib/main.dart
           python3 scripts/mizancode_customer_v1_2_patch.py buildcustomer/lib/main.dart
           python3 scripts/mizancode_customer_v1_3_patch.py buildcustomer/lib/main.dart
+          python3 scripts/mizancode_customer_v1_4_syntax_fix.py buildcustomer/lib/main.dart
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -77,9 +79,6 @@ jobs:
         working-directory: buildcustomer
         run: flutter pub get
 
-      - name: Show generated source around parser error
-        run: nl -ba buildcustomer/lib/main.dart | sed -n '410,435p'
-
       - name: Analyze customer app
         working-directory: buildcustomer
         run: flutter analyze lib --no-fatal-infos
@@ -106,4 +105,4 @@ jobs:
           prerelease: true
           files: MizanCode_Customer_Loyalty_v1.4_Rewards_Offers.apk
 
-# parser inspection trigger
+# syntax fixed build
