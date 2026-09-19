@@ -36,20 +36,28 @@ jobs:
           mkdir -p .build
           cd .build
           flutter create --platforms=android --org com.mizancode --project-name mizancode_customer_rebuild mizancode_customer_rebuild
-          cp ../mizancode_customer_src/pubspec.yaml mizancode_customer_rebuild/pubspec.yaml
-          cp ../mizancode_customer_src/main.dart mizancode_customer_rebuild/lib/main.dart
-          mkdir -p mizancode_customer_rebuild/android/app/src/main/kotlin/com/mizancode/mizancode_customer_rebuild
-          cp ../mizancode_customer_src/MainActivity.kt mizancode_customer_rebuild/android/app/src/main/kotlin/com/mizancode/mizancode_customer_rebuild/MainActivity.kt
-          cp ../mizancode_customer_src/AndroidManifest.xml mizancode_customer_rebuild/android/app/src/main/AndroidManifest.xml
+          cat ../mizancode_customer_src/v1_6_overlay.part00 \
+              ../mizancode_customer_src/v1_6_overlay.part01 \
+              ../mizancode_customer_src/v1_6_overlay.part02 \
+              ../mizancode_customer_src/v1_6_overlay.part03 \
+              ../mizancode_customer_src/v1_6_overlay.part04 \
+              ../mizancode_customer_src/v1_6_overlay.part05 | base64 -d > /tmp/mizancode_v16_overlay.tar.gz
+          tar -xzf /tmp/mizancode_v16_overlay.tar.gz -C mizancode_customer_rebuild
           cd mizancode_customer_rebuild
+          mkdir -p android/app/src/main/res/drawable
+          cp assets/images/mizancode_logo.png android/app/src/main/res/drawable/mizancode_logo.png
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p "android/app/src/main/res/mipmap-$d"
+            cp assets/images/mizancode_logo.png "android/app/src/main/res/mipmap-$d/ic_launcher.png"
+          done
           flutter pub get
           flutter build apk --release
-          cp build/app/outputs/flutter-apk/app-release.apk ../../MizanCode_Customer_v1.4_AutoPoints.apk
+          cp build/app/outputs/flutter-apk/app-release.apk ../../MizanCode_Customer_v1.6_Branded.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MizanCode_Customer_v1.4_AutoPoints_APK
-          path: MizanCode_Customer_v1.4_AutoPoints.apk
+          name: MizanCode_Customer_v1.6_Branded_APK
+          path: MizanCode_Customer_v1.6_Branded.apk
           if-no-files-found: error
           retention-days: 7
