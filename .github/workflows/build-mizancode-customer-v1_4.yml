@@ -1,4 +1,4 @@
-name: Build MizanCode Customer Loyalty v1.4 Rewards Offers
+name: Build MizanCode Customer Loyalty v1.4 Fast Sync
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - 'scripts/mizancode_customer_v1_2_patch.py'
       - 'scripts/mizancode_customer_v1_3_patch.py'
       - 'scripts/mizancode_customer_v1_4_syntax_fix.py'
+      - 'scripts/mizancode_customer_v1_4_fast_sync.py'
       - 'flutter_src/customer_main.dart'
       - 'flutter_src/pubspec_customer.yaml'
   workflow_dispatch:
@@ -26,7 +27,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Create customer Flutter project
+      - name: Create exact v1.4 customer Flutter project
         run: |
           rm -rf buildcustomer
           flutter create --org com.mizancode --project-name mizancode_customer --platforms=android buildcustomer
@@ -35,12 +36,13 @@ jobs:
           python3 scripts/mizancode_customer_v1_2_patch.py buildcustomer/lib/main.dart
           python3 scripts/mizancode_customer_v1_3_patch.py buildcustomer/lib/main.dart
           python3 scripts/mizancode_customer_v1_4_syntax_fix.py buildcustomer/lib/main.dart
+          python3 scripts/mizancode_customer_v1_4_fast_sync.py buildcustomer/lib/main.dart
           python3 - <<'PY'
           from pathlib import Path
           import re
           p=Path('buildcustomer/pubspec.yaml')
           s=p.read_text()
-          s=re.sub(r'^version:\s*.*$', 'version: 1.4.0+5', s, flags=re.M)
+          s=re.sub(r'^version:\s*.*$', 'version: 1.4.1+6', s, flags=re.M)
           p.write_text(s)
           PY
 
@@ -83,26 +85,24 @@ jobs:
         working-directory: buildcustomer
         run: flutter analyze lib --no-fatal-infos
 
-      - name: Build release APK with test ads
+      - name: Build release APK
         working-directory: buildcustomer
         run: flutter build apk --release
 
       - name: Rename APK
-        run: cp buildcustomer/build/app/outputs/flutter-apk/app-release.apk MizanCode_Customer_Loyalty_v1.4_Rewards_Offers.apk
+        run: cp buildcustomer/build/app/outputs/flutter-apk/app-release.apk MizanCode_Customer_Loyalty_v1.4_FastSync.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MizanCode-Customer-Loyalty-v1.4-Rewards-Offers
-          path: MizanCode_Customer_Loyalty_v1.4_Rewards_Offers.apk
+          name: MizanCode-Customer-Loyalty-v1.4-FastSync
+          path: MizanCode_Customer_Loyalty_v1.4_FastSync.apk
           retention-days: 30
 
       - name: Publish prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: mizancode-customer-loyalty-v1.4-rewards-offers
-          name: MizanCode Customer Loyalty v1.4 Rewards Offers
+          tag_name: mizancode-customer-loyalty-v1.4-fast-sync
+          name: MizanCode Customer Loyalty v1.4 Fast Sync
           prerelease: true
-          files: MizanCode_Customer_Loyalty_v1.4_Rewards_Offers.apk
-
-# syntax fixed build
+          files: MizanCode_Customer_Loyalty_v1.4_FastSync.apk
