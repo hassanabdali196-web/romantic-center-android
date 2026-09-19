@@ -1,0 +1,91 @@
+name: MizanCode Customer v1.6.1 Stable
+
+on:
+  push:
+    branches:
+      - mizancode-customer-build-20260919
+    paths:
+      - '.github/workflows/mizancode-customer-stable-v161.yml'
+      - 'mizancode_customer_src/main.dart'
+      - 'mizancode_customer_src/pubspec.yaml'
+      - 'mizancode_customer_src/AndroidManifest.xml'
+      - 'mizancode_customer_src/MainActivity.kt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+          cache: true
+
+      - name: Create stable Flutter project
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rm -rf .build/mizancode_customer_stable
+          mkdir -p .build
+          cd .build
+          flutter create --platforms=android --org com.mizancode --project-name mizancode_customer_rebuild mizancode_customer_stable
+          cd mizancode_customer_stable
+
+          cp ../../mizancode_customer_src/pubspec.yaml pubspec.yaml
+          cp ../../mizancode_customer_src/main.dart lib/main.dart
+          cp ../../mizancode_customer_src/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          mkdir -p android/app/src/main/kotlin/com/mizancode/mizancode_customer_rebuild
+          cp ../../mizancode_customer_src/MainActivity.kt android/app/src/main/kotlin/com/mizancode/mizancode_customer_rebuild/MainActivity.kt
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # Stable version bump.
+          p=Path('pubspec.yaml')
+          s=p.read_text(encoding='utf-8')
+          s=re.sub(r'^version:\s*.*$', 'version: 1.6.1+16', s, flags=re.M)
+          p.write_text(s,encoding='utf-8')
+
+          # Never allow a missing native preference channel to terminate startup.
+          p=Path('lib/main.dart')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('void main() => runApp(const CustomerApp());', "void main() { WidgetsFlutterBinding.ensureInitialized(); runApp(const CustomerApp()); }")
+          s=s.replace("    final saved = await preferences.invokeMethod<String>('getBarcode');", "    String? saved;\n    try { saved = await preferences.invokeMethod<String>('getBarcode'); } catch (_) { saved = ''; }")
+          s=s.replace("    await preferences.invokeMethod<void>('setBarcode', clean);", "    try { await preferences.invokeMethod<void>('setBarcode', clean); } catch (_) {}")
+          p.write_text(s,encoding='utf-8')
+
+          # Delay and guard the native registration dialog. If it ever fails, Flutter still opens.
+          p=Path('android/app/src/main/kotlin/com/mizancode/mizancode_customer_rebuild/MainActivity.kt')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('window.decorView.post {\n                if (!isFinishing) showRegistrationDialog()\n            }', 'window.decorView.postDelayed({\n                if (!isFinishing && !isDestroyed) {\n                    runCatching { showRegistrationDialog() }\n                }\n            }, 700)')
+          p.write_text(s,encoding='utf-8')
+          PY
+
+          # Keep the default Flutter splash to avoid the v1.6 custom splash startup crash path.
+          flutter pub get
+          flutter analyze lib --no-fatal-infos
+          flutter build apk --release
+          cp build/app/outputs/flutter-apk/app-release.apk ../../MizanCode_Customer_v1.6.1_Stable.apk
+
+      - name: Upload stable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MizanCode_Customer_v1.6.1_Stable_APK
+          path: MizanCode_Customer_v1.6.1_Stable.apk
+          if-no-files-found: error
+          retention-days: 7
