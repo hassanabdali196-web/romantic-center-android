@@ -23,16 +23,16 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Restore application source
+      - name: Prepare application source
         shell: pwsh
         run: |
-          $b64 = Get-Content 'mizancode_desktop_build/source.part00' -Raw
-          $b64 = $b64 -replace '\s',''
-          [IO.File]::WriteAllBytes('MizanCode_Base.zip', [Convert]::FromBase64String($b64))
           New-Item -ItemType Directory -Force -Path buildsrc | Out-Null
-          Expand-Archive MizanCode_Base.zip -DestinationPath buildsrc -Force
           Copy-Item 'mizancode_desktop_build/main.py' 'buildsrc/main.py' -Force
-          Get-ChildItem buildsrc -Recurse | Select-Object FullName,Length
+          Copy-Item 'mizancode_desktop_build/database.py' 'buildsrc/database.py' -Force
+          Copy-Item 'mizancode_desktop_build/cloud_api.py' 'buildsrc/cloud_api.py' -Force
+          Copy-Item 'mizancode_desktop_build/invoice.py' 'buildsrc/invoice.py' -Force
+          Copy-Item 'mizancode_desktop_build/requirements.txt' 'buildsrc/requirements.txt' -Force
+          Get-ChildItem buildsrc | Select-Object Name,Length
 
       - name: Install build dependencies
         shell: pwsh
@@ -41,24 +41,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Verify source
+      - name: Verify source and database
         shell: pwsh
         working-directory: buildsrc
         run: |
           python -m py_compile main.py database.py cloud_api.py invoice.py
-          python -c "from database import Database; d=Database(); print('DB_OK', d.setting('POINTS_EARN')); d.close()"
-
-      - name: Prepare Windows icon
-        shell: pwsh
-        working-directory: buildsrc
-        run: |
-          python -c "from PIL import Image; im=Image.open('assets/icon.png').convert('RGBA'); im.save('assets/icon.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128)])"
+          python -c "from database import Database; d=Database(); print('DB_OK', d.setting('POINTS_EARN'), d.setting('POINTS_SPEND_IQD')); d.close()"
 
       - name: Build EXE
         shell: pwsh
         working-directory: buildsrc
         run: |
-          pyinstaller --noconfirm --clean --windowed --onefile --name MizanCode_Desktop_v6.1 --icon assets/icon.ico --add-data "assets/icon.png;assets" main.py
+          pyinstaller --noconfirm --clean --windowed --onefile --name MizanCode_Desktop_v6.1 main.py
 
       - name: Verify EXE
         shell: pwsh
