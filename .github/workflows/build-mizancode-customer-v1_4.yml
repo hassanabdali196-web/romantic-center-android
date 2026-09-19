@@ -77,6 +77,9 @@ jobs:
         working-directory: buildcustomer
         run: flutter pub get
 
+      - name: Show generated source around parser error
+        run: nl -ba buildcustomer/lib/main.dart | sed -n '410,435p'
+
       - name: Analyze customer app
         working-directory: buildcustomer
         run: flutter analyze lib --no-fatal-infos
@@ -103,4 +106,4 @@ jobs:
           prerelease: true
           files: MizanCode_Customer_Loyalty_v1.4_Rewards_Offers.apk
 
-# build trigger 2026-09-19T22:25+03:00
+# parser inspection trigger
