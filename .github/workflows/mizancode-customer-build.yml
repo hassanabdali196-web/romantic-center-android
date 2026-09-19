@@ -45,8 +45,14 @@ jobs:
               ../mizancode_customer_src/v1_6_overlay.part05 | base64 -d > /tmp/mizancode_v16_overlay.tar.gz
           tar -xzf /tmp/mizancode_v16_overlay.tar.gz -C mizancode_customer_rebuild
           cd mizancode_customer_rebuild
-          mkdir -p android/app/src/main/res/drawable
+          mkdir -p android/app/src/main/res/drawable android/app/src/main/res/values
           cp assets/images/mizancode_logo.png android/app/src/main/res/drawable/mizancode_logo.png
+          cat > android/app/src/main/res/values/mizancode_colors.xml <<'EOF'
+          <resources>
+              <color name="mizancode_navy">#0F2747</color>
+          </resources>
+          EOF
+          sed -i 's|android:drawable="#0F2747"|android:drawable="@color/mizancode_navy"|g' android/app/src/main/res/drawable*/launch_background.xml || true
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             mkdir -p "android/app/src/main/res/mipmap-$d"
             cp assets/images/mizancode_logo.png "android/app/src/main/res/mipmap-$d/ic_launcher.png"
