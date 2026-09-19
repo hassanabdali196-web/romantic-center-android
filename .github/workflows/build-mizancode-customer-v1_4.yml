@@ -51,7 +51,6 @@ jobs:
           s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>')
           s=s.replace('android:label="mizancode_customer"', 'android:label="بطاقة ميزان كود"')
           s=s.replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@drawable/mizan_launcher" android:roundIcon="@drawable/mizan_launcher"')
-          marker='android:label="بطاقة ميزان كود"'
           if 'com.google.android.gms.ads.APPLICATION_ID' not in s:
               idx=s.find('>', s.find('<application'))
               s=s[:idx+1]+'\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>'+s[idx+1:]
@@ -103,3 +102,5 @@ jobs:
           name: MizanCode Customer Loyalty v1.4 Rewards Offers
           prerelease: true
           files: MizanCode_Customer_Loyalty_v1.4_Rewards_Offers.apk
+
+# build trigger 2026-09-19T22:25+03:00
