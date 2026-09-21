@@ -1,0 +1,110 @@
+name: Build MizanCode Customer Loyalty v1.8 Cashier Sync
+
+on:
+  push:
+    branches: [ "mizancode-flutter" ]
+    paths:
+      - '.github/workflows/build-mizancode-customer-v1_8.yml'
+      - 'scripts/mizancode_customer_v1_2_patch.py'
+      - 'scripts/mizancode_customer_v1_5_stable_sync.py'
+      - 'scripts/mizancode_customer_v1_6_dynamic_loyalty.py'
+      - 'scripts/mizancode_customer_v1_7_fix.py'
+      - 'scripts/mizancode_customer_v1_8_cashier_sync.py'
+      - 'flutter_src/customer_main.dart'
+      - 'flutter_src/pubspec_customer.yaml'
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create customer Flutter project
+        run: |
+          rm -rf buildcustomer
+          flutter create --org com.mizancode --project-name mizancode_customer --platforms=android buildcustomer
+          cp flutter_src/pubspec_customer.yaml buildcustomer/pubspec.yaml
+          cp flutter_src/customer_main.dart buildcustomer/lib/main.dart
+          python3 scripts/mizancode_customer_v1_2_patch.py buildcustomer/lib/main.dart
+          python3 scripts/mizancode_customer_v1_5_stable_sync.py buildcustomer/lib/main.dart
+          python3 scripts/mizancode_customer_v1_6_dynamic_loyalty.py buildcustomer/lib/main.dart
+          python3 scripts/mizancode_customer_v1_7_fix.py buildcustomer/lib/main.dart
+          python3 scripts/mizancode_customer_v1_8_cashier_sync.py buildcustomer/lib/main.dart
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('buildcustomer/pubspec.yaml')
+          s=p.read_text()
+          s=re.sub(r'^version:\s*.*$', 'version: 1.8.0+11', s, flags=re.M)
+          s=re.sub(r'^\s*google_mobile_ads:.*\n?', '', s, flags=re.M)
+          p.write_text(s)
+          PY
+
+      - name: Configure Android identity permissions and launcher icon
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('buildcustomer/android/app/src/main/AndroidManifest.xml')
+          s=p.read_text()
+          s=s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android">', '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>')
+          s=s.replace('android:label="mizancode_customer"', 'android:label="بطاقة ميزان كود"')
+          s=s.replace('android:icon="@mipmap/ic_launcher"', 'android:icon="@drawable/mizan_launcher" android:roundIcon="@drawable/mizan_launcher"')
+          s=re.sub(r'\s*<meta-data[^>]*com\.google\.android\.gms\.ads\.APPLICATION_ID[^>]*/>', '', s, flags=re.S)
+          p.write_text(s)
+          PY
+          mkdir -p buildcustomer/android/app/src/main/res/drawable
+          cat > buildcustomer/android/app/src/main/res/drawable/mizan_launcher.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#062A52" android:pathData="M0,0h108v108h-108z"/>
+              <path android:fillColor="#11D5D5" android:pathData="M50,13c0,-3 2,-5 5,-5s5,2 5,5 -2,5 -5,5 -5,-2 -5,-5z"/>
+              <path android:fillColor="#11D5D5" android:pathData="M51,24h8v48h-8z"/>
+              <path android:fillColor="#11D5D5" android:pathData="M20,29c20,-9 50,-9 70,0l-3,7c-18,-7 -46,-7 -64,0z"/>
+              <path android:fillColor="#0A3A70" android:pathData="M19,38l-13,20c-4,6 1,14 8,14h20c7,0 12,-8 8,-14l-13,-20z"/>
+              <path android:fillColor="#0A3A70" android:pathData="M79,38l-13,20c-4,6 1,14 8,14h20c7,0 12,-8 8,-14l-13,-20z"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M25,49l-8,8 8,8 4,-4 -4,-4 4,-4z"/>
+              <path android:fillColor="#11D5D5" android:pathData="M80,48l-5,18h5l5,-18zM84,49l8,8 -8,8 -4,-4 4,-4 -4,-4z"/>
+              <path android:fillColor="#168BFF" android:pathData="M30,78c14,11 36,11 50,0l4,5c-17,14 -41,14 -58,0z"/>
+          </vector>
+          EOF
+
+      - name: Get packages
+        working-directory: buildcustomer
+        run: flutter pub get
+
+      - name: Analyze customer app
+        working-directory: buildcustomer
+        run: flutter analyze lib --no-fatal-infos
+
+      - name: Build release APK
+        working-directory: buildcustomer
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: cp buildcustomer/build/app/outputs/flutter-apk/app-release.apk MizanCode_Customer_Loyalty_v1.8_CashierSync.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MizanCode-Customer-Loyalty-v1.8-CashierSync
+          path: MizanCode_Customer_Loyalty_v1.8_CashierSync.apk
+          retention-days: 30
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mizancode-customer-loyalty-v1.8-cashier-sync
+          name: MizanCode Customer Loyalty v1.8 Cashier Sync
+          prerelease: true
+          files: MizanCode_Customer_Loyalty_v1.8_CashierSync.apk
